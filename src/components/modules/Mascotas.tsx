@@ -1,0 +1,1075 @@
+import { Plus, PawPrint, Calendar, User, Phone, MapPin, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import Table from '../ui/Table';
+import Filters from '../ui/Filters';
+import Modal from '../ui/Modal';
+import Tabs from '../ui/Tabs';
+import Badge from '../ui/Badge';
+import { FormField, Input, Textarea } from '../ui/FormField';
+import Autocomplete from '../ui/Autocomplete';
+import DeleteConfirmModal from '../ui/DeleteConfirmModal';
+import { petsService, Pet, PetHealth } from '../../services/pets';
+import { ownersService, Owner } from '../../services/owners';
+import { useTenant } from '../../contexts/TenantContext';
+
+export default function Mascotas() {
+  const { currentTenant, loading: tenantLoading } = useTenant();
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
+  const [selectedPetHealth, setSelectedPetHealth] = useState<PetHealth[]>([]);
+  const [selectedPetBookings, setSelectedPetBookings] = useState<any[]>([]);
+  const [editingPet, setEditingPet] = useState<Pet | null>(null);
+  const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
+  const [ownerType, setOwnerType] = useState<'existing' | 'new'>('existing');
+  const [formData, setFormData] = useState<any>({});
+  const [newOwnerData, setNewOwnerData] = useState<any>({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (currentTenant) {
+      loadData();
+    }
+  }, [currentTenant]);
+
+  const loadData = async () => {
+    if (!currentTenant) return;
+
+    try {
+      setLoading(true);
+      const [petsData, ownersData] = await Promise.all([
+        petsService.getAllPets(currentTenant.id),
+        ownersService.getAll(currentTenant.id)
+      ]);
+      setPets(petsData);
+      setOwners(ownersData);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPetDetails = async (pet: Pet) => {
+    if (!currentTenant) return;
+
+    try {
+      const [healthRecords, bookings] = await Promise.all([
+        petsService.getPetHealthRecords(pet.id, currentTenant.id),
+        petsService.getBookingsByPet(pet.id, currentTenant.id)
+      ]);
+      setSelectedPetHealth(healthRecords);
+      setSelectedPetBookings(bookings);
+    } catch (error) {
+      console.error('Error loading pet details:', error);
+    }
+  };
+
+  const handleEdit = (pet: Pet) => {
+    setEditingPet(pet);
+    setOwnerType('existing');
+    setFormData({
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      age: pet.age,
+      gender: pet.gender,
+      color: pet.color,
+      weight: pet.weight,
+      chip_number: pet.chip_number,
+      has_chip: pet.has_chip,
+      is_neutered: pet.is_neutered,
+      medical_notes: pet.medical_notes,
+      owner_id: pet.owner_id,
+    });
+    setShowFormModal(true);
+  };
+
+  const handleDelete = (pet: Pet) => {
+    setPetToDelete(pet);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseFormModal = () => {
+    setShowFormModal(false);
+    setEditingPet(null);
+    setOwnerType('existing');
+    setFormData({});
+    setNewOwnerData({});
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!petToDelete || !currentTenant) return;
+
+    try {
+      await petsService.deletePet(petToDelete.id, currentTenant.id);
+      await loadData();
+      setShowDeleteModal(false);
+      setPetToDelete(null);
+    } catch (error: any) {
+      console.error('Error al eliminar mascota:', error);
+      alert('Error al eliminar la mascota: ' + (error.message || 'Error desconocido'));
+    }
+  };
+
+  const handleSavePet = async () => {
+    if (!currentTenant) return;
+
+    if (!formData.name || !formData.species || !formData.gender) {
+      alert('Por favor, completa los campos requeridos: nombre, especie y sexo');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      let ownerId = formData.owner_id;
+
+      if (!editingPet && ownerType === 'new') {
+        if (!newOwnerData.first_name || !newOwnerData.last_name || !newOwnerData.phone) {
+          alert('Por favor, completa al menos el nombre, apellido y teléfono del dueño');
+          setSaving(false);
+          return;
+        }
+
+        const newOwner = await ownersService.create(currentTenant.id, newOwnerData);
+        ownerId = newOwner.id;
+      }
+
+      if (!ownerId) {
+        alert('Por favor, selecciona un dueño existente o crea uno nuevo');
+        setSaving(false);
+        return;
+      }
+
+      const petData = {
+        name: formData.name,
+        species: formData.species,
+        breed: formData.breed || '',
+        age: formData.age || 0,
+        gender: formData.gender,
+        color: formData.color || '',
+        weight: formData.weight || 0,
+        chip_number: formData.chip_number || null,
+        has_chip: !!formData.chip_number,
+        is_neutered: formData.is_neutered || false,
+        medical_notes: formData.medical_notes || '',
+        owner_id: ownerId,
+        tenant_id: currentTenant.id
+      };
+
+      if (editingPet) {
+        await petsService.updatePet(editingPet.id, petData, currentTenant.id);
+      } else {
+        await petsService.createPet(petData);
+      }
+
+      await loadData();
+      handleCloseFormModal();
+    } catch (error: any) {
+      console.error('Error al guardar mascota:', error);
+      alert('Error al guardar la mascota: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tableActions = [
+    {
+      label: 'Editar',
+      icon: <Edit2 className="w-4 h-4" />,
+      onClick: handleEdit,
+    },
+    {
+      label: 'Eliminar',
+      icon: <Trash2 className="w-4 h-4" />,
+      onClick: handleDelete,
+      variant: 'danger' as const,
+    },
+  ];
+
+  const speciesOptions = [
+    { value: 'dog', label: 'Perro' },
+    { value: 'cat', label: 'Gato' },
+    { value: 'bird', label: 'Ave' },
+    { value: 'rabbit', label: 'Conejo' },
+    { value: 'hamster', label: 'Hámster' },
+    { value: 'other', label: 'Otro' },
+  ];
+
+  const sexOptions = [
+    { value: 'male', label: 'Macho' },
+    { value: 'female', label: 'Hembra' },
+  ];
+
+  const getDisplayAge = (pet: Pet) => {
+    if (pet.age_display) {
+      return `${pet.age_display.value} ${pet.age_display.unit === 'years' ? 'años' : pet.age_display.unit === 'months' ? 'meses' : 'días'}`;
+    }
+    if (pet.age) {
+      return `${pet.age} años`;
+    }
+    return 'N/A';
+  };
+
+  const columns = [
+    {
+      key: 'name',
+      label: 'Mascota',
+      sortable: true,
+      render: (value: string, row: Pet) => (
+        <div className="flex items-center gap-3">
+          {row.photo_url ? (
+            <img src={row.photo_url} alt={value} className="w-10 h-10 rounded-full object-cover" />
+          ) : (
+            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <PawPrint className="w-5 h-5 text-primary-600" />
+            </div>
+          )}
+          <div>
+            <p className="font-medium text-gray-900">{value}</p>
+            <p className="text-xs text-gray-500">{row.breed}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'species',
+      label: 'Especie',
+      sortable: true,
+      render: (value: string) => value === 'dog' ? 'Perro' : value === 'cat' ? 'Gato' : value
+    },
+    {
+      key: 'age',
+      label: 'Edad',
+      render: (value: number, row: Pet) => getDisplayAge(row)
+    },
+    {
+      key: 'owner',
+      label: 'Propietario',
+      render: (value: any, row: Pet) => (
+        <div>
+          <p className="text-gray-900">
+            {row.owner ? `${row.owner.first_name} ${row.owner.last_name}` : 'Sin nombre'}
+          </p>
+          <p className="text-xs text-gray-500">{row.owner?.phone || 'Sin teléfono'}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: 'Registrado',
+      render: (value: string) => new Date(value).toLocaleDateString('es-ES')
+    },
+    {
+      key: 'status',
+      label: 'Estado',
+      render: () => <Badge variant="success">Activo</Badge>,
+    },
+  ];
+
+  const filters = [
+    {
+      key: 'species',
+      label: 'Especie',
+      type: 'select' as const,
+      options: [
+        { value: 'dog', label: 'Perro' },
+        { value: 'cat', label: 'Gato' },
+        { value: 'bird', label: 'Ave' },
+        { value: 'other', label: 'Otro' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Estado',
+      type: 'select' as const,
+      options: [
+        { value: 'active', label: 'Activo' },
+        { value: 'inactive', label: 'Inactivo' },
+      ],
+    },
+    { key: 'date', label: 'Última visita', type: 'date' as const },
+  ];
+
+  const handleRowClick = async (row: Pet) => {
+    setSelectedPet(row);
+    setShowDetailModal(true);
+    await loadPetDetails(row);
+  };
+
+  const getOwnerOptions = () => {
+    return owners.map(owner => ({
+      value: owner.id,
+      label: `${owner.first_name} ${owner.last_name}`,
+      subtitle: owner.phone || owner.email || owner.document_id || ''
+    }));
+  };
+
+  if (tenantLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Cargando organización...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">No hay organización seleccionada</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Mascotas</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Gestiona el registro de mascotas y sus propietarios - {currentTenant.name}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowFormModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
+        >
+          <Plus className="w-5 h-5" />
+          Nueva mascota
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <Filters
+          filters={filters}
+          searchPlaceholder="Buscar por nombre, propietario o ID..."
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader className="w-8 h-8 text-primary-600 animate-spin" />
+        </div>
+      ) : (
+        <Table columns={columns} data={pets} onRowClick={handleRowClick} actions={tableActions} />
+      )}
+
+      <Modal
+        isOpen={showFormModal}
+        onClose={handleCloseFormModal}
+        title={editingPet ? 'Editar mascota' : 'Nueva mascota'}
+        size="lg"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={handleCloseFormModal}
+              className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
+              disabled={saving}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSavePet}
+              disabled={saving}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && <Loader className="w-4 h-4 animate-spin" />}
+              {editingPet ? 'Guardar cambios' : 'Guardar mascota'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <FormField label="Nombre de la mascota" required>
+              <Input
+                placeholder="Ej: Max"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Especie" required>
+              <Autocomplete
+                options={speciesOptions}
+                placeholder="Seleccionar especie..."
+                value={formData.species || ''}
+                onChange={(value) => setFormData({ ...formData, species: value })}
+              />
+            </FormField>
+
+            <FormField label="Raza">
+              <Input
+                placeholder="Ej: Golden Retriever"
+                value={formData.breed || ''}
+                onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Edad">
+              <Input
+                type="number"
+                placeholder="Edad en años"
+                value={formData.age || ''}
+                onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+              />
+            </FormField>
+
+            <FormField label="Sexo" required>
+              <Autocomplete
+                options={sexOptions}
+                placeholder="Seleccionar sexo..."
+                value={formData.gender || ''}
+                onChange={(value) => setFormData({ ...formData, gender: value })}
+              />
+            </FormField>
+
+            <FormField label="Color">
+              <Input
+                placeholder="Ej: Dorado"
+                value={formData.color || ''}
+                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Peso actual (kg)">
+              <Input
+                type="number"
+                placeholder="0.0"
+                value={formData.weight || ''}
+                onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })}
+              />
+            </FormField>
+
+            <FormField label="Microchip">
+              <Input
+                placeholder="Número de microchip"
+                value={formData.chip_number || ''}
+                onChange={(e) => setFormData({ ...formData, chip_number: e.target.value, has_chip: !!e.target.value })}
+              />
+            </FormField>
+          </div>
+
+          <div className="pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Información del propietario</h3>
+
+              {!editingPet && (
+                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setOwnerType('existing')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    ownerType === 'existing'
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Propietario existente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOwnerType('new')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    ownerType === 'new'
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Nuevo propietario
+                </button>
+              </div>
+              )}
+            </div>
+
+            {ownerType === 'existing' || editingPet ? (
+              <div>
+                <FormField label="Buscar propietario" required>
+                  <Autocomplete
+                    options={getOwnerOptions()}
+                    placeholder="Buscar por nombre, teléfono o documento..."
+                    value={formData.owner_id || ''}
+                    onChange={(value) => setFormData({ ...formData, owner_id: value })}
+                  />
+                </FormField>
+                {owners.length === 0 ? (
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">No hay propietarios registrados</p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Cambia a "Nuevo propietario" para crear uno, o ve al módulo de Dueños para registrar propietarios.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <User className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {formData.owner_id && owners.find(o => o.id === formData.owner_id)
+                            ? 'Propietario seleccionado'
+                            : `${owners.length} propietarios disponibles`
+                          }
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {formData.owner_id && owners.find(o => o.id === formData.owner_id)
+                            ? (() => {
+                                const selectedOwner = owners.find(o => o.id === formData.owner_id);
+                                return `${selectedOwner?.first_name} ${selectedOwner?.last_name} - ${selectedOwner?.phone || selectedOwner?.email || 'Sin contacto'}`;
+                              })()
+                            : 'Busca por nombre, teléfono, email o documento'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-6">
+                <FormField label="Nombre" required>
+                  <Input
+                    placeholder="Ej: Juan"
+                    value={newOwnerData.first_name || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, first_name: e.target.value })}
+                  />
+                </FormField>
+
+                <FormField label="Apellido" required>
+                  <Input
+                    placeholder="Ej: Pérez"
+                    value={newOwnerData.last_name || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, last_name: e.target.value })}
+                  />
+                </FormField>
+
+                <FormField label="Teléfono" required>
+                  <Input
+                    type="tel"
+                    placeholder="+52 55 1234 5678"
+                    value={newOwnerData.phone || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, phone: e.target.value })}
+                  />
+                </FormField>
+
+                <FormField label="Email">
+                  <Input
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={newOwnerData.email || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, email: e.target.value })}
+                  />
+                </FormField>
+
+                <FormField label="DNI/Identificación">
+                  <Input
+                    placeholder="Número de identificación"
+                    value={newOwnerData.document_id || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, document_id: e.target.value })}
+                  />
+                </FormField>
+
+                <FormField label="Ciudad">
+                  <Input
+                    placeholder="Ciudad"
+                    value={newOwnerData.city || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, city: e.target.value })}
+                  />
+                </FormField>
+
+                <FormField label="Dirección" className="col-span-2">
+                  <Input
+                    placeholder="Calle y número"
+                    value={newOwnerData.address || ''}
+                    onChange={(e) => setNewOwnerData({ ...newOwnerData, address: e.target.value })}
+                  />
+                </FormField>
+              </div>
+            )}
+          </div>
+
+          <FormField label="Notas">
+            <Textarea
+              placeholder="Información adicional sobre la mascota..."
+              value={formData.medical_notes || ''}
+              onChange={(e) => setFormData({ ...formData, medical_notes: e.target.value })}
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        title={selectedPet?.name || 'Detalle de mascota'}
+        size="xl"
+      >
+        {selectedPet && (
+          <Tabs
+            tabs={[
+              {
+                id: 'overview',
+                label: 'Resumen',
+                icon: PawPrint,
+                content: (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+                            <PawPrint className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-primary-700 mb-0.5">Especie</p>
+                            <p className="font-semibold text-primary-900">
+                              {selectedPet.species === 'dog' ? 'Perro' : selectedPet.species === 'cat' ? 'Gato' : selectedPet.species}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Raza</p>
+                        <p className="font-semibold text-gray-900">{selectedPet.breed}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Edad</p>
+                        <p className="font-semibold text-gray-900">{getDisplayAge(selectedPet)}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Sexo</p>
+                        <p className="font-semibold text-gray-900">
+                          {selectedPet.gender === 'male' ? 'Macho' : selectedPet.gender === 'female' ? 'Hembra' : selectedPet.gender}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Color</p>
+                        <p className="font-semibold text-gray-900">{selectedPet.color || 'No especificado'}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Peso</p>
+                        <p className="font-semibold text-gray-900">
+                          {selectedPet.weight ? `${selectedPet.weight} kg` : 'No especificado'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Información del propietario</h3>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center gap-3">
+                            <User className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-gray-500">Nombre</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {selectedPet.owner ? `${selectedPet.owner.first_name} ${selectedPet.owner.last_name}` : 'Sin nombre'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Phone className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-gray-500">Teléfono</p>
+                              <p className="text-sm text-gray-900">
+                                {selectedPet.owner?.phone || 'Sin teléfono'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-gray-500">Email</p>
+                              <p className="text-sm text-gray-900">
+                                {selectedPet.owner?.email || 'Sin email'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Location className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-gray-500">Dirección</p>
+                              <p className="text-sm text-gray-900">
+                                {selectedPet.owner?.address || 'Sin dirección'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">Próximas citas y recordatorios</h3>
+                        <Badge variant="warning">
+                          {selectedPetHealth.filter(h => h.next_due_date && new Date(h.next_due_date) > new Date()).length} pendientes
+                        </Badge>
+                      </div>
+                      <div className="space-y-3">
+                        {selectedPetHealth
+                          .filter(h => h.next_due_date && new Date(h.next_due_date) > new Date())
+                          .slice(0, 2)
+                          .map((health) => (
+                            <div key={health.id} className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <Calendar className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">{health.name || health.type}</p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                  {health.next_due_date ? new Date(health.next_due_date).toLocaleDateString('es-ES') : 'Sin fecha'}
+                                </p>
+                              </div>
+                              <Badge variant="info">Programada</Badge>
+                            </div>
+                          ))}
+                        {selectedPetHealth.filter(h => h.next_due_date && new Date(h.next_due_date) > new Date()).length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No hay citas programadas</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Microchip y documentos</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">Número de microchip</p>
+                          <p className="font-mono text-sm font-semibold text-gray-900">
+                            {selectedPet.has_chip && selectedPet.chip_number ? selectedPet.chip_number : 'Sin microchip'}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">Registrado</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {new Date(selectedPet.created_at).toLocaleDateString('es-ES')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: 'health',
+                label: 'Salud',
+                icon: Heart,
+                badge: 3,
+                content: (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <Heart className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-green-700">Estado de salud</p>
+                            <p className="font-semibold text-green-900">Excelente</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <Scale className="w-5 h-5 text-gray-400" />
+                          <div>
+                            <p className="text-xs text-gray-500">Peso actual</p>
+                            <p className="font-semibold text-gray-900">28 kg</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <Syringe className="w-5 h-5 text-gray-400" />
+                          <div>
+                            <p className="text-xs text-gray-500">Vacunas al día</p>
+                            <p className="font-semibold text-gray-900">5/5</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Vacunas recientes</h3>
+                      <div className="space-y-3">
+                        {selectedPetHealth
+                          .filter(h => h.type === 'vaccine')
+                          .slice(0, 5)
+                          .map((vaccine) => {
+                            const isApplied = vaccine.application_date && new Date(vaccine.application_date) <= new Date();
+                            return (
+                              <div
+                                key={vaccine.id}
+                                className={`flex items-start gap-3 p-3 border rounded-lg ${
+                                  isApplied ? 'bg-white border-gray-200' : 'bg-amber-50 border-amber-200'
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                  isApplied ? 'bg-green-100' : 'bg-amber-100'
+                                }`}>
+                                  {isApplied ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <Clock className="w-4 h-4 text-amber-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">{vaccine.name || 'Vacuna'}</p>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {isApplied
+                                      ? `Aplicada el ${new Date(vaccine.application_date!).toLocaleDateString('es-ES')}${vaccine.veterinarian ? ` por ${vaccine.veterinarian}` : ''}`
+                                      : `Programada para ${vaccine.next_due_date ? new Date(vaccine.next_due_date).toLocaleDateString('es-ES') : 'fecha por definir'}`
+                                    }
+                                  </p>
+                                  {vaccine.next_due_date && isApplied && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Próxima dosis: {new Date(vaccine.next_due_date).toLocaleDateString('es-ES')}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge variant={isApplied ? 'success' : 'warning'}>
+                                  {isApplied ? 'Aplicada' : 'Pendiente'}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        {selectedPetHealth.filter(h => h.type === 'vaccine').length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No hay vacunas registradas</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Tratamientos actuales</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <Pill className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">Antiparasitario mensual</p>
+                            <p className="text-xs text-gray-600 mt-1">1 comprimido cada 30 días</p>
+                            <p className="text-xs text-blue-600 mt-1">Próxima dosis: 5 Abr 2024</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de peso</h3>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Mar 2024</span>
+                            <span className="text-sm font-medium text-gray-900">28.0 kg</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Feb 2024</span>
+                            <span className="text-sm font-medium text-gray-900">27.5 kg</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Ene 2024</span>
+                            <span className="text-sm font-medium text-gray-900">27.0 kg</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: 'services',
+                label: 'Servicios',
+                icon: Calendar,
+                content: (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
+                        <p className="text-xs text-primary-700 mb-1">Total de servicios</p>
+                        <p className="text-2xl font-bold text-primary-900">{selectedPetBookings.length}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Gasto total</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          ${selectedPetBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Servicios recientes</h3>
+                      <div className="space-y-3">
+                        {selectedPetBookings
+                          .filter(b => b.status === 'completed' || b.status === 'delivered')
+                          .slice(0, 5)
+                          .map((booking, index) => {
+                            const icons = [ShoppingBag, Heart, Calendar];
+                            const colors = ['blue', 'green', 'purple'];
+                            const Icon = icons[index % icons.length];
+                            const color = colors[index % colors.length];
+
+                            return (
+                              <div key={booking.id} className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
+                                <div className={`w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                  <Icon className={`w-5 h-5 text-${color}-600`} />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {booking.service_name || booking.service?.name || 'Servicio'}
+                                      </p>
+                                      <p className="text-xs text-gray-600 mt-1">
+                                        {new Date(booking.date).toLocaleDateString('es-ES')}
+                                        {booking.time && ` • ${booking.time}`}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        {booking.partner_name || booking.partner?.business_name || 'Proveedor'}
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        ${booking.total_amount?.toFixed(2) || '0.00'}
+                                      </p>
+                                      <Badge variant="success">Completado</Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        {selectedPetBookings.filter(b => b.status === 'completed' || b.status === 'delivered').length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No hay servicios completados</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Próximos servicios</h3>
+                      <div className="space-y-3">
+                        {selectedPetBookings
+                          .filter(b => ['pending', 'confirmed', 'processing'].includes(b.status) && new Date(b.date) >= new Date())
+                          .slice(0, 3)
+                          .map((booking) => (
+                            <div key={booking.id} className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Syringe className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {booking.service_name || booking.service?.name || 'Servicio'}
+                                    </p>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      {new Date(booking.date).toLocaleDateString('es-ES')}
+                                      {booking.time && ` • ${booking.time}`}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {booking.partner_name || booking.partner?.business_name || 'Proveedor'}
+                                    </p>
+                                  </div>
+                                  <Badge variant="info">Programado</Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        {selectedPetBookings.filter(b => ['pending', 'confirmed', 'processing'].includes(b.status) && new Date(b.date) >= new Date()).length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No hay servicios programados</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: 'qr',
+                label: 'QR Digital',
+                icon: QrCode,
+                content: (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <div className="w-64 h-64 bg-white border-4 border-primary-200 rounded-2xl mx-auto mb-4 p-6 flex items-center justify-center shadow-lg">
+                        <QrCode className="w-full h-full text-gray-800" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">Código QR de identificación</p>
+                      <p className="text-xs text-gray-500 mt-1">ID: PET-{selectedPet.id}-2024</p>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">¿Cómo usar el código QR?</p>
+                          <ul className="text-xs text-gray-600 mt-2 space-y-1">
+                            <li>• Escanea el código con cualquier app de lectura QR</li>
+                            <li>• Accede instantáneamente a la información de {selectedPet.name}</li>
+                            <li>• Datos de contacto del propietario en caso de emergencia</li>
+                            <li>• Historial médico y vacunas importantes</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button className="px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium">
+                        Descargar QR
+                      </button>
+                      <button className="px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
+                        Imprimir
+                      </button>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Información incluida en el QR</h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <span className="text-gray-700">Nombre y datos de la mascota</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <span className="text-gray-700">Contacto del propietario</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <span className="text-gray-700">Número de microchip</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <span className="text-gray-700">Vacunas y tratamientos</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <span className="text-gray-700">Alergias y condiciones médicas</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        )}
+      </Modal>
+
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={`la mascota "${petToDelete?.name || ''}"`}
+        message={`Esta acción no se puede deshacer. Se eliminará toda la información de ${petToDelete?.name || 'esta mascota'}, incluyendo su historial médico y de servicios.`}
+      />
+    </div>
+  );
+}
