@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Package, Plus, Search, AlertTriangle, TrendingDown, TrendingUp, CreditCard as Edit2, Trash2, BarChart3, ArrowUp, ArrowDown, Filter, Download } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Package, Plus, Search, AlertTriangle, TrendingDown, TrendingUp, Trash2, BarChart3, ArrowUp, ArrowDown, Download, Upload, Image, Link, X, CreditCard as Edit2 } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
@@ -28,17 +28,6 @@ interface Product {
   updated_at: string;
 }
 
-interface StockMovement {
-  id: string;
-  product_id: string;
-  type: 'entry' | 'exit' | 'adjustment';
-  quantity: number;
-  reason: string;
-  reference: string | null;
-  created_at: string;
-  created_by: string | null;
-}
-
 const CATEGORIES = [
   'Alimentos',
   'Medicamentos',
@@ -54,7 +43,9 @@ const UNITS = ['unidad', 'kg', 'g', 'ml', 'l', 'caja', 'paquete', 'sobre'];
 
 export default function Inventario() {
   const { currentTenant } = useTenant();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,9 +55,10 @@ export default function Inventario() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: '',
@@ -81,7 +73,9 @@ export default function Inventario() {
     min_stock: '5',
     unit: 'unidad',
     is_active: true,
-    requires_prescription: false
+    requires_prescription: false,
+    image_url: '',
+    image_source: 'url' as 'url' | 'upload'
   });
 
   const [stockForm, setStockForm] = useState({
@@ -89,6 +83,10 @@ export default function Inventario() {
     quantity: '',
     reason: ''
   });
+
+  const [importData, setImportData] = useState('');
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     if (currentTenant) {
@@ -116,6 +114,45 @@ export default function Inventario() {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!currentTenant) return;
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showError('La imagen no puede superar 5MB');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      showError('Solo se permiten imagenes JPG, PNG, WebP o GIF');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentTenant.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      setProductForm({ ...productForm, image_url: publicUrl });
+      showSuccess('Imagen subida correctamente');
+    } catch (error: any) {
+      showError('Error al subir imagen: ' + error.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentTenant) return;
@@ -134,7 +171,8 @@ export default function Inventario() {
         min_stock: parseInt(productForm.min_stock) || 5,
         unit: productForm.unit,
         is_active: productForm.is_active,
-        requires_prescription: productForm.requires_prescription
+        requires_prescription: productForm.requires_prescription,
+        image_url: productForm.image_url || null
       };
 
       if (editingProduct) {
@@ -222,22 +260,6 @@ export default function Inventario() {
     }
   };
 
-  const toggleProductStatus = async (product: Product) => {
-    try {
-      const { error } = await supabase
-        .from('products')
-        .update({ is_active: !product.is_active, updated_at: new Date().toISOString() })
-        .eq('id', product.id);
-
-      if (error) throw error;
-
-      showSuccess(`Producto ${product.is_active ? 'desactivado' : 'activado'}`);
-      loadProducts();
-    } catch (error: any) {
-      showError('Error al cambiar estado: ' + error.message);
-    }
-  };
-
   const openEditModal = (product: Product) => {
     setEditingProduct(product);
     setProductForm({
@@ -253,7 +275,9 @@ export default function Inventario() {
       min_stock: product.min_stock?.toString() || '5',
       unit: product.unit || 'unidad',
       is_active: product.is_active,
-      requires_prescription: product.requires_prescription
+      requires_prescription: product.requires_prescription,
+      image_url: product.image_url || '',
+      image_source: 'url'
     });
     setShowProductModal(true);
   };
@@ -279,8 +303,88 @@ export default function Inventario() {
       min_stock: '5',
       unit: 'unidad',
       is_active: true,
-      requires_prescription: false
+      requires_prescription: false,
+      image_url: '',
+      image_source: 'url'
     });
+  };
+
+  const parseImportData = (text: string) => {
+    const lines = text.trim().split('\n').filter(line => line.trim());
+    const products: any[] = [];
+
+    for (const line of lines) {
+      const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+      if (parts.length >= 4) {
+        products.push({
+          name: parts[0],
+          sku: parts[1] || null,
+          category: parts[2] || 'Otros',
+          price: parseFloat(parts[3]) || 0,
+          cost: parseFloat(parts[4]) || 0,
+          stock: parseInt(parts[5]) || 0,
+          min_stock: parseInt(parts[6]) || 5,
+          brand: parts[7] || null,
+          unit: parts[8] || 'unidad',
+          description: parts[9] || null,
+          image_url: parts[10] || null
+        });
+      }
+    }
+
+    return products;
+  };
+
+  const handleImportPreview = () => {
+    const parsed = parseImportData(importData);
+    setImportPreview(parsed);
+  };
+
+  const handleImportProducts = async () => {
+    if (!currentTenant || importPreview.length === 0) return;
+
+    setImporting(true);
+    try {
+      const productsToInsert = importPreview.map(p => ({
+        ...p,
+        tenant_id: currentTenant.id,
+        is_active: true,
+        requires_prescription: false
+      }));
+
+      const { error } = await supabase
+        .from('products')
+        .insert(productsToInsert);
+
+      if (error) throw error;
+
+      showSuccess(`${productsToInsert.length} productos importados correctamente`);
+      setShowImportModal(false);
+      setImportData('');
+      setImportPreview([]);
+      loadProducts();
+    } catch (error: any) {
+      showError('Error al importar productos: ' + error.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const generateSampleSQL = () => {
+    if (!currentTenant) return '';
+    return `-- Insertar productos de ejemplo
+INSERT INTO products (tenant_id, name, sku, category, brand, price, cost, stock, min_stock, unit, is_active)
+VALUES
+  ('${currentTenant.id}', 'Alimento Premium Perro 15kg', 'ALM-001', 'Alimentos', 'Royal Canin', 450.00, 320.00, 25, 5, 'unidad', true),
+  ('${currentTenant.id}', 'Alimento Gato Adulto 10kg', 'ALM-002', 'Alimentos', 'Whiskas', 380.00, 280.00, 18, 5, 'unidad', true),
+  ('${currentTenant.id}', 'Collar Antipulgas Grande', 'ACC-001', 'Accesorios', 'Frontline', 120.00, 85.00, 40, 10, 'unidad', true),
+  ('${currentTenant.id}', 'Shampoo Medicado 500ml', 'HIG-001', 'Higiene', 'Virbac', 85.00, 55.00, 30, 8, 'unidad', true),
+  ('${currentTenant.id}', 'Juguete Interactivo Kong', 'JUG-001', 'Juguetes', 'Kong', 180.00, 120.00, 15, 5, 'unidad', true),
+  ('${currentTenant.id}', 'Vitaminas Cachorro 60tabs', 'SUP-001', 'Suplementos', 'Bayer', 95.00, 65.00, 22, 6, 'unidad', true),
+  ('${currentTenant.id}', 'Correa Retractil 5m', 'ACC-002', 'Accesorios', 'Flexi', 250.00, 180.00, 12, 4, 'unidad', true),
+  ('${currentTenant.id}', 'Cama Ortopedica Grande', 'ACC-003', 'Accesorios', 'PetSafe', 550.00, 380.00, 8, 3, 'unidad', true),
+  ('${currentTenant.id}', 'Antiparasitario Oral', 'MED-001', 'Medicamentos', 'Bravecto', 320.00, 240.00, 35, 10, 'unidad', true),
+  ('${currentTenant.id}', 'Arena Sanitaria 10kg', 'HIG-002', 'Higiene', 'Sanicat', 75.00, 50.00, 45, 15, 'unidad', true);`;
   };
 
   const filteredProducts = products.filter(p => {
@@ -318,7 +422,7 @@ export default function Inventario() {
 
   const exportInventory = () => {
     const csv = [
-      ['Nombre', 'SKU', 'Categoria', 'Precio', 'Costo', 'Stock', 'Stock Min', 'Estado'].join(','),
+      ['Nombre', 'SKU', 'Categoria', 'Precio', 'Costo', 'Stock', 'Stock Min', 'Marca', 'Unidad', 'Descripcion', 'Imagen URL'].join(','),
       ...filteredProducts.map(p => [
         `"${p.name}"`,
         p.sku || '',
@@ -327,7 +431,10 @@ export default function Inventario() {
         p.cost || 0,
         p.stock,
         p.min_stock || 5,
-        getStockStatus(p).label
+        p.brand || '',
+        p.unit || 'unidad',
+        `"${p.description || ''}"`,
+        p.image_url || ''
       ].join(','))
     ].join('\n');
 
@@ -347,6 +454,13 @@ export default function Inventario() {
           <p className="text-gray-600">Gestiona productos, stock y movimientos</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Importar
+          </button>
           <button
             onClick={exportInventory}
             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
@@ -502,9 +616,17 @@ export default function Inventario() {
                     <tr key={product.id} className={`hover:bg-gray-50 ${!product.is_active ? 'opacity-50' : ''}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Package className="w-5 h-5 text-gray-400" />
-                          </div>
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-10 h-10 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <Package className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-gray-900">{product.name}</p>
                             {product.brand && (
@@ -586,6 +708,96 @@ export default function Inventario() {
       >
         <form onSubmit={handleSubmitProduct} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <FormField label="Imagen del producto">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setProductForm({ ...productForm, image_source: 'url' })}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
+                        productForm.image_source === 'url'
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Link className="w-4 h-4" />
+                      URL externa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProductForm({ ...productForm, image_source: 'upload' })}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
+                        productForm.image_source === 'upload'
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Upload className="w-4 h-4" />
+                      Subir archivo
+                    </button>
+                  </div>
+
+                  {productForm.image_source === 'url' ? (
+                    <Input
+                      value={productForm.image_url}
+                      onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUpload(file);
+                        }}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        className="w-full py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 transition-colors flex flex-col items-center justify-center gap-2"
+                      >
+                        {uploadingImage ? (
+                          <>
+                            <div className="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+                            <span className="text-sm text-gray-500">Subiendo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Image className="w-8 h-8 text-gray-400" />
+                            <span className="text-sm text-gray-500">Haz clic para seleccionar una imagen</span>
+                            <span className="text-xs text-gray-400">JPG, PNG, WebP o GIF (max. 5MB)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {productForm.image_url && (
+                    <div className="relative inline-block">
+                      <img
+                        src={productForm.image_url}
+                        alt="Preview"
+                        className="w-24 h-24 rounded-lg object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setProductForm({ ...productForm, image_url: '' })}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </FormField>
+            </div>
+
             <div className="col-span-2">
               <FormField label="Nombre del producto" required>
                 <Input
@@ -857,6 +1069,108 @@ export default function Inventario() {
             </div>
           </form>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showImportModal}
+        onClose={() => { setShowImportModal(false); setImportData(''); setImportPreview([]); }}
+        title="Importar Productos"
+        size="lg"
+      >
+        <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 mb-2">Formato CSV esperado:</h4>
+            <p className="text-sm text-blue-800 font-mono">
+              Nombre, SKU, Categoria, Precio, Costo, Stock, Stock Min, Marca, Unidad, Descripcion, Imagen URL
+            </p>
+          </div>
+
+          <FormField label="Datos CSV (una linea por producto)">
+            <Textarea
+              value={importData}
+              onChange={(e) => setImportData(e.target.value)}
+              placeholder={`Alimento Premium 15kg, ALM-001, Alimentos, 450, 320, 25, 5, Royal Canin, unidad, Alimento premium para perros adultos, https://ejemplo.com/imagen.jpg
+Collar Antipulgas, ACC-001, Accesorios, 120, 85, 40, 10, Frontline, unidad, , `}
+              rows={6}
+            />
+          </FormField>
+
+          <button
+            type="button"
+            onClick={handleImportPreview}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            Vista previa
+          </button>
+
+          {importPreview.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 border-b">
+                <p className="text-sm font-medium text-gray-700">{importPreview.length} productos a importar</p>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Nombre</th>
+                      <th className="px-3 py-2 text-left">SKU</th>
+                      <th className="px-3 py-2 text-left">Categoria</th>
+                      <th className="px-3 py-2 text-right">Precio</th>
+                      <th className="px-3 py-2 text-right">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {importPreview.map((p, idx) => (
+                      <tr key={idx}>
+                        <td className="px-3 py-2">{p.name}</td>
+                        <td className="px-3 py-2 text-gray-500">{p.sku || '-'}</td>
+                        <td className="px-3 py-2">{p.category}</td>
+                        <td className="px-3 py-2 text-right">${p.price}</td>
+                        <td className="px-3 py-2 text-right">{p.stock}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t pt-4">
+            <h4 className="font-medium text-gray-900 mb-2">SQL de ejemplo:</h4>
+            <div className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto">
+              <pre className="text-xs whitespace-pre-wrap">{generateSampleSQL()}</pre>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(generateSampleSQL());
+                showInfo('SQL copiado al portapapeles');
+              }}
+              className="mt-2 text-sm text-primary-600 hover:text-primary-700"
+            >
+              Copiar SQL
+            </button>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => { setShowImportModal(false); setImportData(''); setImportPreview([]); }}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleImportProducts}
+              disabled={importPreview.length === 0 || importing}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {importing && <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>}
+              Importar {importPreview.length} productos
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <DeleteConfirmModal
