@@ -12,7 +12,7 @@ import { profilesService, VeterinarianProfile } from '../../services/profiles';
 import { showSuccess, showError } from '../../utils/messages';
 import { supabase } from '../../lib/supabase';
 
-const PENDING_CONSULTATION_APPOINTMENT_KEY = 'pendingConsultationAppointmentId';
+const PENDING_DAYCARE_APPOINTMENT_KEY = 'pendingDaycareAppointmentId';
 
 interface PetService {
   id: string;
@@ -93,13 +93,13 @@ export default function Cuidado() {
   }, [currentTenant]);
 
   const checkPendingAppointment = async () => {
-    const pendingId = window.sessionStorage.getItem(PENDING_CONSULTATION_APPOINTMENT_KEY);
+    const pendingId = window.sessionStorage.getItem(PENDING_DAYCARE_APPOINTMENT_KEY);
     if (pendingId && currentTenant) {
-      window.sessionStorage.removeItem(PENDING_CONSULTATION_APPOINTMENT_KEY);
+      window.sessionStorage.removeItem(PENDING_DAYCARE_APPOINTMENT_KEY);
       try {
         const appointments = await appointmentsService.getAll(currentTenant.id);
         const appointment = appointments.find(a => a.id === pendingId);
-        if (appointment && appointment.service?.service_type === 'daycare') {
+        if (appointment) {
           startServiceFromAppointment(appointment);
         }
       } catch (error) {

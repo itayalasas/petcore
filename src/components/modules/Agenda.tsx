@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3 as Grid3X3, Users, Briefcase, AlertCircle, CheckCircle, Play, UserPlus, Plus, Search, X } from 'lucide-react';
+import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3 as Grid3X3, Users, Briefcase, AlertCircle, CheckCircle, Play, UserPlus, Plus, Search, X, Stethoscope, Scissors } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { appointmentsService, AppointmentWithDetails, servicesService, Service } from '../../services/servicesAppointments';
@@ -7,6 +7,7 @@ import { referralsService, ReferralWithDetails } from '../../services/cases';
 import { petsService, Pet } from '../../services/pets';
 import { ownersService, Owner } from '../../services/owners';
 import { usersService, TenantUser } from '../../services/users';
+import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
 import Autocomplete from '../ui/Autocomplete';
 
@@ -66,10 +67,12 @@ export default function Agenda() {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [pendingReferrals, setPendingReferrals] = useState<ReferralWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [filterDepartment, setFilterDepartment] = useState<string>('');
   const [filterEmployee, setFilterEmployee] = useState<string>('');
   const [filterService, setFilterService] = useState<string>('');
+  const [filterOnlyMine, setFilterOnlyMine] = useState<boolean>(false);
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showNewAppointmentModal, setShowNewAppointmentModal] = useState(false);
@@ -92,6 +95,16 @@ export default function Agenda() {
   const [newEmployeeSearch, setNewEmployeeSearch] = useState('');
   const [showNewEmployeeDropdown, setShowNewEmployeeDropdown] = useState(false);
   const newEmployeeDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    loadCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (currentTenant) {
@@ -170,6 +183,7 @@ export default function Agenda() {
     if (filterDepartment && appt.service?.service_type !== filterDepartment) return false;
     if (filterEmployee && appt.employee_id !== filterEmployee) return false;
     if (filterService && appt.service_id !== filterService) return false;
+    if (filterOnlyMine && currentUserId && appt.employee_id !== currentUserId) return false;
 
     return true;
   });
@@ -233,6 +247,32 @@ export default function Agenda() {
     } catch (error) {
       console.error('Error updating status:', error);
       showError('Error al actualizar estado');
+    }
+  };
+
+  const handleAttendAppointment = async (appointment: AppointmentWithDetails) => {
+    try {
+      if (appointment.status !== 'in_progress') {
+        await appointmentsService.updateStatus(appointment.id, 'in_progress');
+      }
+
+      const serviceType = appointment.service?.service_type;
+      let targetView = 'salud';
+
+      if (serviceType === 'grooming') {
+        targetView = 'estetica';
+        sessionStorage.setItem('pendingGroomingAppointmentId', appointment.id);
+      } else if (serviceType === 'daycare') {
+        targetView = 'cuidado';
+        sessionStorage.setItem('pendingDaycareAppointmentId', appointment.id);
+      } else {
+        sessionStorage.setItem('pendingConsultationAppointmentId', appointment.id);
+      }
+
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: { view: targetView } }));
+    } catch (error) {
+      console.error('Error attending appointment:', error);
+      showError('Error al atender cita');
     }
   };
 
@@ -468,11 +508,20 @@ export default function Agenda() {
           )}
           {(appointment.status === 'confirmed' || appointment.status === 'scheduled') && (
             <button
-              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(appointment, 'in_progress'); }}
+              onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
               className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600"
-              title="Iniciar"
+              title="Atender"
             >
               <Play className="w-3 h-3" />
+            </button>
+          )}
+          {appointment.status === 'in_progress' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
+              className="p-1 bg-cyan-500 text-white rounded hover:bg-cyan-600"
+              title="Continuar atendiendo"
+            >
+              {appointment.service?.service_type === 'grooming' ? <Scissors className="w-3 h-3" /> : <Stethoscope className="w-3 h-3" />}
             </button>
           )}
           {!appointment.employee_id && (
@@ -698,11 +747,20 @@ export default function Agenda() {
                       )}
                       {(appointment.status === 'confirmed' || appointment.status === 'scheduled') && (
                         <button
-                          onClick={() => handleUpdateStatus(appointment, 'in_progress')}
+                          onClick={() => handleAttendAppointment(appointment)}
                           className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded"
-                          title="Iniciar"
+                          title="Atender"
                         >
                           <Play className="w-4 h-4" />
+                        </button>
+                      )}
+                      {appointment.status === 'in_progress' && (
+                        <button
+                          onClick={() => handleAttendAppointment(appointment)}
+                          className="p-1.5 text-cyan-500 hover:bg-cyan-50 rounded"
+                          title="Continuar atendiendo"
+                        >
+                          {appointment.service?.service_type === 'grooming' ? <Scissors className="w-4 h-4" /> : <Stethoscope className="w-4 h-4" />}
                         </button>
                       )}
                     </div>
@@ -867,12 +925,23 @@ export default function Agenda() {
             ))}
           </select>
 
-          {(filterDepartment || filterEmployee || filterService) && (
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filterOnlyMine}
+              onChange={e => setFilterOnlyMine(e.target.checked)}
+              className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+            />
+            <span className="text-gray-700">Solo mis citas</span>
+          </label>
+
+          {(filterDepartment || filterEmployee || filterService || filterOnlyMine) && (
             <button
               onClick={() => {
                 setFilterDepartment('');
                 setFilterEmployee('');
                 setFilterService('');
+                setFilterOnlyMine(false);
               }}
               className="text-sm text-red-600 hover:underline"
             >
