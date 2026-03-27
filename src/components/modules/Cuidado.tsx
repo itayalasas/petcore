@@ -142,34 +142,29 @@ export default function Cuidado() {
       .from('pet_services')
       .select(`
         *,
-        pet:pets(*),
-        performer:profiles(*)
+        pet:pets(*)
       `)
       .eq('tenant_id', currentTenant.id)
-      .eq('service_type', 'other')
-      .or('service_type.eq.daycare,service_type.eq.walk,service_type.eq.overnight,service_type.eq.other')
+      .in('service_type', ['daycare', 'walk', 'overnight', 'other'])
       .order('performed_at', { ascending: false });
 
-    if (error) {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('pet_services')
-        .select(`
-          *,
-          pet:pets(*),
-          performer:profiles(*)
-        `)
-        .eq('tenant_id', currentTenant.id)
-        .order('performed_at', { ascending: false });
+    if (error) throw error;
 
-      if (fallbackError) throw fallbackError;
-      const filtered = (fallbackData || []).filter(s =>
-        ['daycare', 'walk', 'overnight', 'other'].includes(s.service_type) ||
-        s.service_type === 'other'
-      );
-      setPetServices(filtered);
-      return;
-    }
-    setPetServices(data || []);
+    const servicesWithPerformer = await Promise.all(
+      (data || []).map(async (service) => {
+        if (service.performed_by) {
+          const { data: performer } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', service.performed_by)
+            .maybeSingle();
+          return { ...service, performer };
+        }
+        return { ...service, performer: null };
+      })
+    );
+
+    setPetServices(servicesWithPerformer);
   };
 
   const loadPendingAppointments = async () => {
