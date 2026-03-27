@@ -1,23 +1,39 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3 as Grid3X3, Users, Briefcase, AlertCircle, CheckCircle, Play, UserPlus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3 as Grid3X3, Users, Briefcase, AlertCircle, CheckCircle, Play, UserPlus, Plus, Search, X } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
-import { appointmentsService, AppointmentWithDetails } from '../../services/servicesAppointments';
+import { appointmentsService, AppointmentWithDetails, servicesService, Service } from '../../services/servicesAppointments';
 import { employeesService, EmployeeWithDetails } from '../../services/employees';
 import { referralsService, ReferralWithDetails } from '../../services/cases';
-import { servicesService, Service } from '../../services/servicesAppointments';
+import { petsService, Pet } from '../../services/pets';
+import { ownersService, Owner } from '../../services/owners';
 import Modal from '../ui/Modal';
+import Autocomplete from '../ui/Autocomplete';
 
 type ViewMode = 'day' | 'week' | 'list';
 type GroupBy = 'time' | 'employee' | 'service' | 'department';
 
 const DEPARTMENTS = [
+  { value: 'general', label: 'General' },
   { value: 'veterinary', label: 'Veterinaria' },
   { value: 'grooming', label: 'Estetica' },
   { value: 'daycare', label: 'Guarderia' },
   { value: 'store', label: 'Tienda' },
   { value: 'laboratory', label: 'Laboratorio' },
 ];
+
+const DEPARTMENT_BADGES: Record<string, { bg: string; text: string }> = {
+  general: { bg: 'bg-gray-100', text: 'text-gray-700' },
+  veterinary: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  grooming: { bg: 'bg-pink-100', text: 'text-pink-700' },
+  daycare: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  store: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  laboratory: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+  surgery: { bg: 'bg-red-100', text: 'text-red-700' },
+  imaging: { bg: 'bg-violet-100', text: 'text-violet-700' },
+  reception: { bg: 'bg-orange-100', text: 'text-orange-700' },
+  admin: { bg: 'bg-slate-100', text: 'text-slate-700' },
+};
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
 
@@ -40,12 +56,14 @@ export default function Agenda() {
   const { currentTenant } = useTenant();
   const { showSuccess, showError } = useToast();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [groupBy, setGroupBy] = useState<GroupBy>('time');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
   const [employees, setEmployees] = useState<EmployeeWithDetails[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [owners, setOwners] = useState<Owner[]>([]);
   const [pendingReferrals, setPendingReferrals] = useState<ReferralWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,29 +72,64 @@ export default function Agenda() {
   const [filterService, setFilterService] = useState<string>('');
 
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showNewAppointmentModal, setShowNewAppointmentModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
+
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const [assignEmployeeId, setAssignEmployeeId] = useState('');
+  const employeeDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [newAppointmentData, setNewAppointmentData] = useState({
+    scheduled_at: '',
+    pet_id: '',
+    owner_id: '',
+    service_id: '',
+    employee_id: '',
+    duration_minutes: 30,
+    notes: '',
+  });
+  const [newEmployeeSearch, setNewEmployeeSearch] = useState('');
+  const [showNewEmployeeDropdown, setShowNewEmployeeDropdown] = useState(false);
+  const newEmployeeDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentTenant) {
       loadData();
     }
-  }, [currentTenant, selectedDate]);
+  }, [currentTenant]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (employeeDropdownRef.current && !employeeDropdownRef.current.contains(e.target as Node)) {
+        setShowEmployeeDropdown(false);
+      }
+      if (newEmployeeDropdownRef.current && !newEmployeeDropdownRef.current.contains(e.target as Node)) {
+        setShowNewEmployeeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadData = async () => {
     if (!currentTenant) return;
     setLoading(true);
     try {
-      const [appts, emps, srvs, refs] = await Promise.all([
+      const [appts, emps, srvs, refs, petsData, ownersData] = await Promise.all([
         appointmentsService.getAll(currentTenant.id),
         employeesService.getAll(currentTenant.id),
         servicesService.getAll(currentTenant.id),
         referralsService.getPending(currentTenant.id),
+        petsService.getAll(currentTenant.id),
+        ownersService.getAll(currentTenant.id),
       ]);
       setAppointments(appts);
       setEmployees(emps);
       setServices(srvs);
       setPendingReferrals(refs);
+      setPets(petsData);
+      setOwners(ownersData);
     } catch (error) {
       console.error('Error loading data:', error);
       showError('Error al cargar la agenda');
@@ -133,15 +186,40 @@ export default function Agenda() {
 
   const goToToday = () => setSelectedDate(new Date());
 
+  const getDeptLabel = (value: string) => DEPARTMENTS.find(d => d.value === value)?.label || value;
+  const getDeptBadge = (dept: string) => DEPARTMENT_BADGES[dept] || DEPARTMENT_BADGES.general;
+
+  const filteredEmployeesForAssign = employees.filter(e => {
+    if (!e.is_active) return false;
+    if (!employeeSearch) return true;
+    const fullName = `${e.first_name} ${e.last_name}`.toLowerCase();
+    const deptLabel = getDeptLabel(e.department).toLowerCase();
+    return fullName.includes(employeeSearch.toLowerCase()) || deptLabel.includes(employeeSearch.toLowerCase());
+  });
+
+  const filteredEmployeesForNew = employees.filter(e => {
+    if (!e.is_active) return false;
+    if (!newEmployeeSearch) return true;
+    const fullName = `${e.first_name} ${e.last_name}`.toLowerCase();
+    const deptLabel = getDeptLabel(e.department).toLowerCase();
+    return fullName.includes(newEmployeeSearch.toLowerCase()) || deptLabel.includes(newEmployeeSearch.toLowerCase());
+  });
+
+  const selectedEmployeeForAssign = employees.find(e => e.id === assignEmployeeId);
+  const selectedEmployeeForNew = employees.find(e => e.id === newAppointmentData.employee_id);
+
   const handleAssignEmployee = async () => {
-    if (!selectedAppointment || !assignEmployeeId) return;
+    if (!selectedAppointment) return;
 
     try {
-      await appointmentsService.update(selectedAppointment.id, { employee_id: assignEmployeeId });
+      await appointmentsService.update(selectedAppointment.id, {
+        employee_id: assignEmployeeId || null
+      });
       showSuccess('Empleado asignado');
       setShowAssignModal(false);
       setSelectedAppointment(null);
       setAssignEmployeeId('');
+      setEmployeeSearch('');
       await loadData();
     } catch (error) {
       console.error('Error assigning employee:', error);
@@ -163,7 +241,50 @@ export default function Agenda() {
   const openAssignModal = (appointment: AppointmentWithDetails) => {
     setSelectedAppointment(appointment);
     setAssignEmployeeId(appointment.employee_id || '');
+    setEmployeeSearch('');
     setShowAssignModal(true);
+  };
+
+  const openNewAppointmentModal = (date: Date, hour: number) => {
+    const scheduledAt = new Date(date);
+    scheduledAt.setHours(hour, 0, 0, 0);
+
+    setNewAppointmentData({
+      scheduled_at: scheduledAt.toISOString().slice(0, 16),
+      pet_id: '',
+      owner_id: '',
+      service_id: '',
+      employee_id: '',
+      duration_minutes: 30,
+      notes: '',
+    });
+    setNewEmployeeSearch('');
+    setShowNewAppointmentModal(true);
+  };
+
+  const handleCreateAppointment = async () => {
+    if (!currentTenant) return;
+
+    if (!newAppointmentData.pet_id || !newAppointmentData.scheduled_at) {
+      showError('Selecciona mascota y horario');
+      return;
+    }
+
+    try {
+      const pet = pets.find(p => p.id === newAppointmentData.pet_id);
+      await appointmentsService.create(currentTenant.id, {
+        ...newAppointmentData,
+        owner_id: pet?.owner_id || newAppointmentData.owner_id,
+        employee_id: newAppointmentData.employee_id || undefined,
+        service_id: newAppointmentData.service_id || undefined,
+      });
+      showSuccess('Cita creada');
+      setShowNewAppointmentModal(false);
+      await loadData();
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      showError('Error al crear cita');
+    }
   };
 
   const getAppointmentsForHour = (hour: number, day?: Date) => {
@@ -194,6 +315,112 @@ export default function Agenda() {
     return grouped;
   };
 
+  const renderEmployeeSelector = (
+    value: string,
+    search: string,
+    setSearch: (s: string) => void,
+    showDropdown: boolean,
+    setShowDropdown: (s: boolean) => void,
+    onChange: (id: string) => void,
+    filteredList: EmployeeWithDetails[],
+    selectedEmp: EmployeeWithDetails | undefined,
+    dropdownRef: React.RefObject<HTMLDivElement>
+  ) => {
+    return (
+      <div className="relative" ref={dropdownRef}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={selectedEmp ? `${selectedEmp.first_name} ${selectedEmp.last_name}` : search}
+            onChange={e => {
+              setSearch(e.target.value);
+              onChange('');
+              setShowDropdown(true);
+            }}
+            onFocus={() => setShowDropdown(true)}
+            placeholder="Buscar empleado por nombre o departamento..."
+            className="w-full pl-9 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+          {(selectedEmp || search) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                onChange('');
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {selectedEmp && (
+          <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+              <User className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1">
+              <div className="font-medium text-sm">{selectedEmp.first_name} {selectedEmp.last_name}</div>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-xs ${getDeptBadge(selectedEmp.department).bg} ${getDeptBadge(selectedEmp.department).text}`}>
+                  {getDeptLabel(selectedEmp.department)}
+                </span>
+                {selectedEmp.email && <span className="text-xs text-gray-500">{selectedEmp.email}</span>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showDropdown && !selectedEmp && (
+          <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            {filteredList.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                No se encontraron empleados
+              </div>
+            ) : (
+              filteredList.map(emp => {
+                const badge = getDeptBadge(emp.department);
+                return (
+                  <button
+                    key={emp.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(emp.id);
+                      setSearch('');
+                      setShowDropdown(false);
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-3 border-b last:border-b-0"
+                  >
+                    <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">
+                        {emp.first_name} {emp.last_name}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${badge.bg} ${badge.text}`}>
+                          {getDeptLabel(emp.department)}
+                        </span>
+                        {emp.specializations && emp.specializations.length > 0 && (
+                          <span className="text-xs text-gray-400 truncate">
+                            {emp.specializations.slice(0, 2).join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderAppointmentCard = (appointment: AppointmentWithDetails, compact = false) => {
     const statusClass = STATUS_COLORS[appointment.status] || STATUS_COLORS.pending;
     const time = new Date(appointment.scheduled_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
@@ -203,7 +430,7 @@ export default function Agenda() {
       <div
         key={appointment.id}
         className={`p-2 rounded border ${statusClass} ${compact ? 'text-xs' : 'text-sm'} cursor-pointer hover:shadow-md transition-shadow`}
-        onClick={() => openAssignModal(appointment)}
+        onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
       >
         <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
         {!compact && (
@@ -264,7 +491,9 @@ export default function Agenda() {
               <div className="font-medium text-sm mb-3 pb-2 border-b flex items-center gap-2">
                 <User className="w-4 h-4 text-gray-500" />
                 {employee.first_name} {employee.last_name}
-                <span className="text-xs text-gray-500">({employee.department})</span>
+                <span className={`px-1.5 py-0.5 rounded text-xs ${getDeptBadge(employee.department).bg} ${getDeptBadge(employee.department).text}`}>
+                  {getDeptLabel(employee.department)}
+                </span>
               </div>
               <div className="space-y-2">
                 {(grouped[employee.id] || []).map(appt => renderAppointmentCard(appt))}
@@ -320,8 +549,17 @@ export default function Agenda() {
             {HOURS.map(hour => {
               const hourAppointments = getAppointmentsForHour(hour);
               return (
-                <div key={hour} className="h-20 border-b p-1 flex gap-1 flex-wrap">
+                <div
+                  key={hour}
+                  className="h-20 border-b p-1 flex gap-1 flex-wrap cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => openNewAppointmentModal(selectedDate, hour)}
+                >
                   {hourAppointments.map(appt => renderAppointmentCard(appt, true))}
+                  {hourAppointments.length === 0 && (
+                    <div className="w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <Plus className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -353,14 +591,18 @@ export default function Agenda() {
           ))}
 
           {HOURS.map(hour => (
-            <>
-              <div key={`hour-${hour}`} className="bg-gray-50 border-b px-2 py-1 text-xs text-gray-500 h-16">
+            <div key={`row-${hour}`} className="contents">
+              <div className="bg-gray-50 border-b px-2 py-1 text-xs text-gray-500 h-16">
                 {hour.toString().padStart(2, '0')}:00
               </div>
               {weekDays.map(day => {
                 const dayAppointments = getAppointmentsForHour(hour, day);
                 return (
-                  <div key={`${day.toISOString()}-${hour}`} className="border-b border-l p-1 h-16 overflow-hidden">
+                  <div
+                    key={`${day.toISOString()}-${hour}`}
+                    className="border-b border-l p-1 h-16 overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => openNewAppointmentModal(day, hour)}
+                  >
                     {dayAppointments.slice(0, 2).map(appt => renderAppointmentCard(appt, true))}
                     {dayAppointments.length > 2 && (
                       <div className="text-xs text-gray-500 text-center">+{dayAppointments.length - 2} mas</div>
@@ -368,7 +610,7 @@ export default function Agenda() {
                   </div>
                 );
               })}
-            </>
+            </div>
           ))}
         </div>
       </div>
@@ -405,9 +647,16 @@ export default function Agenda() {
                     <div className="text-xs text-gray-500">{appointment.owner?.first_name} {appointment.owner?.last_name}</div>
                   </td>
                   <td className="px-4 py-3 text-sm">{appointment.service?.name}</td>
-                  <td className="px-4 py-3 text-sm">
-                    {employee ? `${employee.first_name} ${employee.last_name}` : (
-                      <span className="text-gray-400">Sin asignar</span>
+                  <td className="px-4 py-3">
+                    {employee ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{employee.first_name} {employee.last_name}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${getDeptBadge(employee.department).bg} ${getDeptBadge(employee.department).text}`}>
+                          {getDeptLabel(employee.department)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Sin asignar</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -472,6 +721,13 @@ export default function Agenda() {
           <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
           <p className="text-gray-600">Gestion de citas por empleados y servicios</p>
         </div>
+        <button
+          onClick={() => openNewAppointmentModal(selectedDate, 9)}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+        >
+          <Plus className="w-5 h-5" />
+          Nueva cita
+        </button>
       </div>
 
       {pendingReferrals.length > 0 && (
@@ -488,11 +744,6 @@ export default function Agenda() {
                   {referral.from_department} → {referral.to_department}
                 </div>
                 <div className="text-xs mt-1">{referral.reason}</div>
-                <div className="flex items-center gap-1 mt-2">
-                  <span className={`px-2 py-0.5 rounded text-xs ${URGENCY_COLORS[referral.urgency]}`}>
-                    {referral.urgency}
-                  </span>
-                </div>
               </div>
             ))}
           </div>
@@ -502,22 +753,13 @@ export default function Agenda() {
       <div className="bg-white rounded-lg border p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigateDate(-1)}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
+            <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-gray-100 rounded">
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <button
-              onClick={goToToday}
-              className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded"
-            >
+            <button onClick={goToToday} className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded">
               Hoy
             </button>
-            <button
-              onClick={() => navigateDate(1)}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
+            <button onClick={() => navigateDate(1)} className="p-2 hover:bg-gray-100 rounded">
               <ChevronRight className="w-5 h-5" />
             </button>
             <span className="font-medium ml-2 capitalize">{formatDate(selectedDate)}</span>
@@ -594,7 +836,7 @@ export default function Agenda() {
           >
             <option value="">Todos los empleados</option>
             {employees.filter(e => e.is_active).map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>
+              <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({getDeptLabel(emp.department)})</option>
             ))}
           </select>
 
@@ -630,43 +872,55 @@ export default function Agenda() {
 
       <Modal
         isOpen={showAssignModal}
-        onClose={() => { setShowAssignModal(false); setSelectedAppointment(null); }}
+        onClose={() => { setShowAssignModal(false); setSelectedAppointment(null); setEmployeeSearch(''); }}
         title="Asignar empleado"
+        size="md"
       >
         {selectedAppointment && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded p-3">
-              <div className="font-medium">{selectedAppointment.pet?.name}</div>
-              <div className="text-sm text-gray-600">{selectedAppointment.service?.name}</div>
-              <div className="text-sm text-gray-500">
-                {new Date(selectedAppointment.scheduled_at).toLocaleString('es-MX')}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <span className="text-emerald-700 font-semibold text-lg">
+                    {selectedAppointment.pet?.name?.charAt(0) || '?'}
+                  </span>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900">{selectedAppointment.pet?.name}</div>
+                  <div className="text-sm text-gray-600">{selectedAppointment.service?.name}</div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {new Date(selectedAppointment.scheduled_at).toLocaleString('es-MX', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Empleado asignado
               </label>
-              <select
-                value={assignEmployeeId}
-                onChange={e => setAssignEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              >
-                <option value="">Sin asignar</option>
-                {employees
-                  .filter(e => e.is_active)
-                  .filter(e => !selectedAppointment.service?.service_type || e.department === selectedAppointment.service.service_type || e.department === 'general')
-                  .map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.department})
-                    </option>
-                  ))}
-              </select>
+              {renderEmployeeSelector(
+                assignEmployeeId,
+                employeeSearch,
+                setEmployeeSearch,
+                showEmployeeDropdown,
+                setShowEmployeeDropdown,
+                setAssignEmployeeId,
+                filteredEmployeesForAssign,
+                selectedEmployeeForAssign,
+                employeeDropdownRef
+              )}
             </div>
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end pt-4 border-t">
               <button
-                onClick={() => { setShowAssignModal(false); setSelectedAppointment(null); }}
+                onClick={() => { setShowAssignModal(false); setSelectedAppointment(null); setEmployeeSearch(''); }}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
               >
                 Cancelar
@@ -680,6 +934,115 @@ export default function Agenda() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showNewAppointmentModal}
+        onClose={() => setShowNewAppointmentModal(false)}
+        title="Nueva cita"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha y hora *
+              </label>
+              <input
+                type="datetime-local"
+                value={newAppointmentData.scheduled_at}
+                onChange={e => setNewAppointmentData({ ...newAppointmentData, scheduled_at: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Duracion (minutos)
+              </label>
+              <input
+                type="number"
+                value={newAppointmentData.duration_minutes}
+                onChange={e => setNewAppointmentData({ ...newAppointmentData, duration_minutes: parseInt(e.target.value) || 30 })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                min={15}
+                step={15}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mascota *
+            </label>
+            <Autocomplete
+              options={pets.map(p => ({ value: p.id, label: `${p.name} - ${p.species} (${p.breed})` }))}
+              value={newAppointmentData.pet_id}
+              onChange={value => setNewAppointmentData({ ...newAppointmentData, pet_id: value })}
+              placeholder="Buscar mascota..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Servicio
+            </label>
+            <select
+              value={newAppointmentData.service_id}
+              onChange={e => setNewAppointmentData({ ...newAppointmentData, service_id: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="">Seleccionar servicio...</option>
+              {services.filter(s => s.is_active).map(svc => (
+                <option key={svc.id} value={svc.id}>{svc.name} - ${svc.price}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Empleado asignado
+            </label>
+            {renderEmployeeSelector(
+              newAppointmentData.employee_id,
+              newEmployeeSearch,
+              setNewEmployeeSearch,
+              showNewEmployeeDropdown,
+              setShowNewEmployeeDropdown,
+              (id) => setNewAppointmentData({ ...newAppointmentData, employee_id: id }),
+              filteredEmployeesForNew,
+              selectedEmployeeForNew,
+              newEmployeeDropdownRef
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notas
+            </label>
+            <textarea
+              value={newAppointmentData.notes}
+              onChange={e => setNewAppointmentData({ ...newAppointmentData, notes: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+              rows={2}
+              placeholder="Notas adicionales..."
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4 border-t">
+            <button
+              onClick={() => setShowNewAppointmentModal(false)}
+              className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleCreateAppointment}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+            >
+              Crear cita
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
