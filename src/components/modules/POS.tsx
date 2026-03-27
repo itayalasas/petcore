@@ -201,6 +201,7 @@ export default function POS() {
             pet:pets(id, name, species, owner_id, owner:owners!owner_id(first_name, last_name))
           `)
           .eq('tenant_id', currentTenant.id)
+          .eq('billed', false)
           .in('service_type', ['grooming', 'bathing', 'nail_trim', 'haircut', 'spa'])
           .in('status', ['completed', 'in_progress'])
           .order('performed_at', { ascending: false })
@@ -212,6 +213,7 @@ export default function POS() {
             pet:pets(id, name, species, owner_id, owner:owners!owner_id(first_name, last_name))
           `)
           .eq('tenant_id', currentTenant.id)
+          .eq('billed', false)
           .in('service_type', ['daycare', 'walk', 'overnight'])
           .in('status', ['completed', 'in_progress'])
           .order('performed_at', { ascending: false })
@@ -545,7 +547,7 @@ export default function POS() {
         } else if (source.type === 'grooming' || source.type === 'daycare') {
           await supabase
             .from('pet_services')
-            .update({ status: 'completed' })
+            .update({ billed: true, status: 'completed' })
             .eq('id', source.id);
         }
       }
