@@ -39,10 +39,11 @@ export function Input({ error, className = '', ...props }: InputProps) {
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: boolean;
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
+  children?: React.ReactNode;
 }
 
-export function Select({ error, options, className = '', ...props }: SelectProps) {
+export function Select({ error, options, className = '', children, ...props }: SelectProps) {
   return (
     <select
       className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all ${
@@ -50,7 +51,7 @@ export function Select({ error, options, className = '', ...props }: SelectProps
       } ${className}`}
       {...props}
     >
-      {options.map((option) => (
+      {children ? children : options?.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}
         </option>
