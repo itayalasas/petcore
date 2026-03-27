@@ -1,8 +1,9 @@
-import { ShoppingCart, Search, Receipt, Package, Briefcase, FileText, Stethoscope, Scissors, Sun, Plus, Minus, X, Clock, User, PawPrint, CreditCard, Banknote, Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Search, Receipt, Package, Briefcase, FileText, Stethoscope, Scissors, Sun, Plus, Minus, X, Clock, User, PawPrint, CreditCard, Banknote, Building2, ChevronDown, ChevronUp, Bell } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
+import { notificationsService, BillingQueueItem } from '../../services/notifications';
 
 interface Product {
   id: string;
@@ -108,6 +109,7 @@ export default function POS() {
   const [selectedPetGroup, setSelectedPetGroup] = useState<string | null>(null);
   const [petSearchTerm, setPetSearchTerm] = useState('');
   const [showPetDropdown, setShowPetDropdown] = useState(false);
+  const [billingQueue, setBillingQueue] = useState<BillingQueueItem[]>([]);
   const petSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,9 +128,27 @@ export default function POS() {
       loadServices();
       loadPets();
       loadPendingCharges();
+      loadBillingQueue();
       checkForConsultation();
+
+      const unsubscribe = notificationsService.subscribeToChanges(currentTenant.id, () => {
+        loadBillingQueue();
+        loadPendingCharges();
+      });
+
+      return () => unsubscribe();
     }
   }, [currentTenant]);
+
+  const loadBillingQueue = async () => {
+    if (!currentTenant) return;
+    try {
+      const items = await notificationsService.getPendingBillingItems(currentTenant.id);
+      setBillingQueue(items);
+    } catch (error) {
+      console.error('Error loading billing queue:', error);
+    }
+  };
 
   const checkForConsultation = async () => {
     const hash = window.location.hash;
@@ -557,9 +577,19 @@ export default function POS() {
       }
 
       showSuccess(`Venta ${saleNumber} procesada exitosamente`);
+      for (const source of linkedSources) {
+        if (source.type === 'billing_queue') {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData.user) {
+            await notificationsService.processBillingItem(source.id, userData.user.id, saleData.id);
+          }
+        }
+      }
+
       clearCart();
       loadProducts();
       loadPendingCharges();
+      loadBillingQueue();
 
     } catch (error: any) {
       console.error('Error processing sale:', error);
@@ -596,6 +626,63 @@ export default function POS() {
 
   const selectedPetInfo = pets.find(p => p.id === selectedPet);
 
+  const handleProcessBillingItem = async (item: BillingQueueItem) => {
+    try {
+      setCart([]);
+      setLinkedSources([]);
+      setSelectedPet(item.pet_id || '');
+      setSelectedPetGroup(item.pet_id || null);
+
+      const newCart: CartItem[] = [];
+
+      if (item.items && item.items.length > 0) {
+        item.items.forEach((subItem: any) => {
+          newCart.push({
+            type: 'service',
+            id: item.id,
+            name: subItem.description,
+            quantity: subItem.quantity,
+            unit_price: subItem.unit_price,
+            discount: 0,
+            source_id: item.id,
+            source_type: 'billing_queue'
+          });
+        });
+      } else {
+        newCart.push({
+          type: 'service',
+          id: item.id,
+          name: item.description,
+          quantity: 1,
+          unit_price: item.amount,
+          discount: 0,
+          source_id: item.id,
+          source_type: 'billing_queue'
+        });
+      }
+
+      setCart(newCart);
+      setLinkedSources([{ type: 'billing_queue', id: item.id }]);
+      showSuccess(`Cobro de ${item.pet?.name || 'servicio'} cargado al carrito`);
+    } catch (error) {
+      console.error('Error processing billing item:', error);
+      showError('Error al cargar el cobro');
+    }
+  };
+
+  const handleDismissBillingItem = async (item: BillingQueueItem) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Usuario no autenticado');
+      await notificationsService.cancelBillingItem(item.id, userData.user.id);
+      showInfo('Notificacion descartada');
+      loadBillingQueue();
+    } catch (error) {
+      console.error('Error dismissing billing item:', error);
+      showError('Error al descartar notificacion');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -604,6 +691,50 @@ export default function POS() {
           <p className="text-gray-600">Procesa ventas y cobra servicios pendientes</p>
         </div>
       </div>
+
+      {billingQueue.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bell className="w-5 h-5 text-amber-600" />
+            <h3 className="font-semibold text-amber-900">Notificaciones de cobro ({billingQueue.length})</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {billingQueue.slice(0, 6).map(item => {
+              const config = CHARGE_TYPE_CONFIG[item.source_type] || CHARGE_TYPE_CONFIG['consultation'];
+              const Icon = config?.icon || FileText;
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-lg border border-amber-200 p-3 flex items-center gap-3"
+                >
+                  <div className={`w-10 h-10 rounded-lg ${config?.bg} flex items-center justify-center flex-shrink-0`}>
+                    <Icon className={`w-5 h-5 ${config?.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm truncate">{item.pet?.name || 'Servicio'}</p>
+                    <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                    <p className="text-xs text-amber-600 font-medium">${item.amount.toFixed(2)}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => handleProcessBillingItem(item)}
+                      className="px-2 py-1 bg-emerald-600 text-white text-xs rounded hover:bg-emerald-700 transition-colors"
+                    >
+                      Cobrar
+                    </button>
+                    <button
+                      onClick={() => handleDismissBillingItem(item)}
+                      className="px-2 py-1 text-gray-500 text-xs hover:bg-gray-100 rounded transition-colors"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {selectedPetGroup && selectedPetInfo && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">

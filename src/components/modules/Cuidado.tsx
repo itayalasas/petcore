@@ -1,10 +1,11 @@
-import { Plus, Sun, Search, Check, Clock, AlertCircle, Home } from 'lucide-react';
+import { Plus, Sun, Search, Check, Clock, AlertCircle, Home, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { FormField, Input, Textarea, Select } from '../ui/FormField';
+import { notificationsService } from '../../services/notifications';
 import { useTenant } from '../../contexts/TenantContext';
 import { petsService, Pet } from '../../services/pets';
 import { ownersService, Owner } from '../../services/owners';
@@ -271,6 +272,44 @@ export default function Cuidado() {
     }
   };
 
+  const handleSendToBilling = async (service: PetService) => {
+    if (!currentTenant) return;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Usuario no autenticado');
+
+      const pet = service.pet;
+      const owner = pet ? owners.find(o => o.id === pet.owner_id) : null;
+      const serviceTypeLabel = SERVICE_TYPES.find(t => t.value === service.service_type)?.label || service.service_type;
+
+      await notificationsService.sendToBilling(currentTenant.id, userData.user.id, {
+        sourceType: service.service_type as any,
+        sourceId: service.id,
+        petId: service.pet_id,
+        ownerId: owner?.id,
+        description: `${serviceTypeLabel}: ${service.service_name} - ${pet?.name || 'N/A'}`,
+        items: [{
+          description: service.service_name,
+          quantity: 1,
+          unit_price: service.price,
+        }],
+        amount: service.price,
+        notes: service.notes,
+      });
+
+      await supabase
+        .from('pet_services')
+        .update({ billed: true, updated_at: new Date().toISOString() })
+        .eq('id', service.id);
+
+      showSuccess('Enviado a caja para cobro');
+      await loadPetServices();
+    } catch (error) {
+      console.error('Error sending to billing:', error);
+      showError('Error al enviar a caja');
+    }
+  };
+
   const resetForm = () => {
     setEditingService(null);
     setSelectedAppointment(null);
@@ -402,6 +441,11 @@ export default function Cuidado() {
   ];
 
   const tableActions = [
+    {
+      label: 'A Caja',
+      icon: <Send className="w-4 h-4" />,
+      onClick: handleSendToBilling,
+    },
     {
       label: 'Completar',
       icon: <Check className="w-4 h-4" />,

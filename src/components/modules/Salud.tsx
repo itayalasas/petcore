@@ -1,4 +1,4 @@
-import { Plus, FileText, Activity, Calendar, Weight, Thermometer, Heart, Pill, Save, X, Search, Filter, ShoppingCart, DollarSign, Trash2, Stethoscope, ClipboardList, Syringe } from 'lucide-react';
+import { Plus, FileText, Activity, Calendar, Weight, Thermometer, Heart, Pill, Save, X, Search, Filter, ShoppingCart, DollarSign, Trash2, Stethoscope, ClipboardList, Syringe, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
@@ -11,6 +11,7 @@ import { getMedications, type Medication } from '../../services/medications';
 import { getDiagnoses, type Diagnosis } from '../../services/diagnoses';
 import { getTreatments, type Treatment } from '../../services/treatments';
 import { createPrescription } from '../../services/prescriptions';
+import { notificationsService } from '../../services/notifications';
 
 const PENDING_CONSULTATION_APPOINTMENT_KEY = 'pendingConsultationAppointmentId';
 
@@ -813,6 +814,45 @@ export default function Salud() {
     window.location.hash = '#pos?consultation=' + consultationId;
   };
 
+  const handleSendToBilling = async (consultation: Consultation) => {
+    if (!currentTenant) return;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Usuario no autenticado');
+
+      const { data: consultationData } = await supabase
+        .from('consultations')
+        .select('*, pet:pets(name, owner_id, owner:owners!owner_id(id, first_name, last_name))')
+        .eq('id', consultation.id)
+        .single();
+
+      if (!consultationData) throw new Error('Consulta no encontrada');
+
+      const billableItems = consultationData.billable_items || [];
+      const items = billableItems.map((item: BillableItem) => ({
+        description: item.name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }));
+
+      await notificationsService.sendToBilling(currentTenant.id, userData.user.id, {
+        sourceType: 'consultation',
+        sourceId: consultation.id,
+        petId: consultation.pet_id,
+        ownerId: consultationData.pet?.owner?.id,
+        description: `Consulta: ${consultation.reason} - ${consultation.pet_name}`,
+        items,
+        amount: consultation.total_amount,
+        notes: `Veterinario: ${consultation.veterinarian_name}`,
+      });
+
+      showSuccess('Enviado a caja para cobro');
+    } catch (error) {
+      console.error('Error sending to billing:', error);
+      showError('Error al enviar a caja');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       pet_id: '',
@@ -1019,16 +1059,30 @@ export default function Salud() {
             </Badge>
           )}
           {!row.billed && row.total_amount > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleChargeConsultation(row.id);
-              }}
-              className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 flex items-center gap-1"
-            >
-              <ShoppingCart className="w-3 h-3" />
-              Cobrar
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSendToBilling(row);
+                }}
+                className="px-2 py-1 bg-amber-500 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1"
+                title="Enviar notificacion a caja"
+              >
+                <Send className="w-3 h-3" />
+                A Caja
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleChargeConsultation(row.id);
+                }}
+                className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 flex items-center gap-1"
+                title="Ir a POS para cobrar"
+              >
+                <ShoppingCart className="w-3 h-3" />
+                Cobrar
+              </button>
+            </>
           )}
         </div>
       )

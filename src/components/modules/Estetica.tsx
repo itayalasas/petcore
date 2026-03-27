@@ -1,4 +1,4 @@
-import { Plus, Scissors, Search, Check, Clock, AlertCircle, Camera, X } from 'lucide-react';
+import { Plus, Scissors, Search, Check, Clock, AlertCircle, Camera, X, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
@@ -12,6 +12,7 @@ import { appointmentsService, AppointmentWithDetails, Service, servicesService }
 import { profilesService, VeterinarianProfile } from '../../services/profiles';
 import { showSuccess, showError } from '../../utils/messages';
 import { supabase } from '../../lib/supabase';
+import { notificationsService } from '../../services/notifications';
 
 const PENDING_GROOMING_APPOINTMENT_KEY = 'pendingGroomingAppointmentId';
 
@@ -290,6 +291,43 @@ export default function Estetica() {
     }
   };
 
+  const handleSendToBilling = async (service: PetService) => {
+    if (!currentTenant) return;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('Usuario no autenticado');
+
+      const pet = service.pet;
+      const owner = pet ? owners.find(o => o.id === pet.owner_id) : null;
+
+      await notificationsService.sendToBilling(currentTenant.id, userData.user.id, {
+        sourceType: 'grooming',
+        sourceId: service.id,
+        petId: service.pet_id,
+        ownerId: owner?.id,
+        description: `Estetica: ${service.service_name} - ${pet?.name || 'N/A'}`,
+        items: [{
+          description: service.service_name,
+          quantity: 1,
+          unit_price: service.price,
+        }],
+        amount: service.price,
+        notes: service.notes,
+      });
+
+      await supabase
+        .from('pet_services')
+        .update({ billed: true, updated_at: new Date().toISOString() })
+        .eq('id', service.id);
+
+      showSuccess('Enviado a caja para cobro');
+      await loadPetServices();
+    } catch (error) {
+      console.error('Error sending to billing:', error);
+      showError('Error al enviar a caja');
+    }
+  };
+
   const resetForm = () => {
     setEditingService(null);
     setSelectedAppointment(null);
@@ -411,6 +449,11 @@ export default function Estetica() {
   ];
 
   const tableActions = [
+    {
+      label: 'A Caja',
+      icon: <Send className="w-4 h-4" />,
+      onClick: handleSendToBilling,
+    },
     {
       label: 'Completar',
       icon: <Check className="w-4 h-4" />,

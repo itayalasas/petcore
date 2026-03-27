@@ -22,15 +22,17 @@ import {
   CalendarDays,
   Package
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
+import { useTenant } from '../contexts/TenantContext';
+import { notificationsService, NotificationCounts } from '../services/notifications';
 
 interface NavItem {
   name: string;
   icon: any;
   key: string;
   module?: string;
-  badge?: number;
+  badgeKey?: keyof NotificationCounts;
   children?: { name: string; key: string }[];
 }
 
@@ -44,16 +46,16 @@ const navigation: NavSection[] = [
     title: 'Operacion diaria',
     items: [
       { name: 'Inicio', icon: Home, key: 'dashboard', module: 'dashboard' },
-      { name: 'Punto de Venta', icon: ShoppingBag, key: 'pos', module: 'pos' },
+      { name: 'Punto de Venta', icon: ShoppingBag, key: 'pos', module: 'pos', badgeKey: 'pendingBilling' },
       { name: 'Mascotas', icon: PawPrint, key: 'mascotas', module: 'mascotas' },
       { name: 'Duenos', icon: Users, key: 'duenos', module: 'duenos' },
-      { name: 'Consultas', icon: Heart, key: 'salud', module: 'salud', badge: 3 },
-      { name: 'Estetica', icon: Scissors, key: 'estetica', module: 'estetica' },
-      { name: 'Cuidado', icon: Sun, key: 'cuidado', module: 'cuidado' },
+      { name: 'Consultas', icon: Heart, key: 'salud', module: 'salud', badgeKey: 'pendingConsultations' },
+      { name: 'Estetica', icon: Scissors, key: 'estetica', module: 'estetica', badgeKey: 'pendingGrooming' },
+      { name: 'Cuidado', icon: Sun, key: 'cuidado', module: 'cuidado', badgeKey: 'pendingDaycare' },
       { name: 'Agenda', icon: CalendarDays, key: 'agenda', module: 'agenda' },
       { name: 'Citas', icon: Calendar, key: 'servicios', module: 'agenda' },
       { name: 'Remisiones', icon: Send, key: 'remisiones', module: 'remisiones' },
-      { name: 'Ordenes', icon: FileText, key: 'ordenes', module: 'ordenes', badge: 12 },
+      { name: 'Ordenes', icon: FileText, key: 'ordenes', module: 'ordenes', badgeKey: 'pendingOrders' },
     ],
   },
   {
@@ -93,11 +95,50 @@ interface SidebarProps {
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { canView, loading } = usePermissions();
+  const { currentTenant } = useTenant();
+  const [counts, setCounts] = useState<NotificationCounts>({
+    pendingConsultations: 0,
+    pendingGrooming: 0,
+    pendingDaycare: 0,
+    pendingOrders: 0,
+    pendingBilling: 0,
+    totalPending: 0,
+  });
+
+  const loadCounts = useCallback(async () => {
+    if (!currentTenant) return;
+    try {
+      const newCounts = await notificationsService.getCounts(currentTenant.id);
+      setCounts(newCounts);
+    } catch (error) {
+      console.error('Error loading notification counts:', error);
+    }
+  }, [currentTenant]);
+
+  useEffect(() => {
+    loadCounts();
+    const interval = setInterval(loadCounts, 30000);
+
+    let unsubscribe: (() => void) | undefined;
+    if (currentTenant) {
+      unsubscribe = notificationsService.subscribeToChanges(currentTenant.id, loadCounts);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentTenant, loadCounts]);
 
   const hasAccess = (item: NavItem): boolean => {
     if (!item.module) return true;
     if (loading) return false;
     return canView(item.module);
+  };
+
+  const getBadgeCount = (item: NavItem): number => {
+    if (!item.badgeKey) return 0;
+    return counts[item.badgeKey] || 0;
   };
 
   return (
@@ -140,13 +181,13 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
 
                       {!collapsed && (
                         <div className="flex items-center gap-2">
-                          {item.badge && (
+                          {getBadgeCount(item) > 0 && (
                             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                               isActive
                                 ? 'bg-white text-primary-700'
-                                : 'bg-gray-800 text-gray-300'
+                                : 'bg-primary-600 text-white'
                             }`}>
-                              {item.badge}
+                              {getBadgeCount(item)}
                             </span>
                           )}
                           {item.children && (
