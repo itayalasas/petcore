@@ -1,4 +1,4 @@
-import { Plus, FileText, Activity, Calendar, Weight, Thermometer, Heart, Pill, Save, X, Search, Filter, ShoppingCart, DollarSign, Trash2, Stethoscope, ClipboardList } from 'lucide-react';
+import { Plus, FileText, Activity, Calendar, Weight, Thermometer, Heart, Pill, Save, X, Search, Filter, ShoppingCart, DollarSign, Trash2, Stethoscope, ClipboardList, Syringe } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
@@ -70,6 +70,31 @@ interface TreatmentItem {
   end_date?: string;
 }
 
+interface VaccineItem {
+  vaccine_id?: string;
+  vaccine_name: string;
+  batch_number?: string;
+  expiry_date?: string;
+  dose_number: number;
+  next_dose_date?: string;
+  price: number;
+  notes?: string;
+}
+
+interface VaccineCatalog {
+  id: string;
+  name: string;
+  description: string | null;
+  species: string[];
+  manufacturer: string | null;
+  dose_ml: number | null;
+  price: number;
+  interval_days: number;
+  required_doses: number;
+  is_required: boolean;
+  min_age_weeks: number;
+}
+
 interface Consultation {
   id: string;
   date: string;
@@ -98,6 +123,7 @@ interface ConsultationForm {
   notes: string;
   billable_items: BillableItem[];
   diagnoses: DiagnosisItem[];
+  vaccines: VaccineItem[];
   treatments: TreatmentItem[];
   prescriptions: PrescriptionItem[];
 }
@@ -142,6 +168,8 @@ export default function Salud() {
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [showTreatmentModal, setShowTreatmentModal] = useState(false);
+  const [showVaccineModal, setShowVaccineModal] = useState(false);
+  const [vaccineCatalog, setVaccineCatalog] = useState<VaccineCatalog[]>([]);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [itemType, setItemType] = useState<'product' | 'service'>('product');
   const [catalogsLoaded, setCatalogsLoaded] = useState(false);
@@ -159,6 +187,7 @@ export default function Salud() {
     notes: '',
     billable_items: [],
     diagnoses: [],
+    vaccines: [],
     treatments: [],
     prescriptions: []
   });
@@ -224,6 +253,7 @@ export default function Salud() {
         notes: data.notes || '',
         billable_items: [],
         diagnoses: [],
+        vaccines: [],
         treatments: [],
         prescriptions: []
       });
@@ -373,6 +403,24 @@ export default function Salud() {
     }
   };
 
+  const loadVaccineCatalog = async () => {
+    try {
+      await supabase.rpc('seed_tenant_vaccines', { p_tenant_id: currentTenant!.id });
+
+      const { data, error } = await supabase
+        .from('vaccine_catalog')
+        .select('*')
+        .eq('tenant_id', currentTenant!.id)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setVaccineCatalog(data || []);
+    } catch (error) {
+      console.error('Error loading vaccine catalog:', error);
+    }
+  };
+
   const ensureBaseCatalogsLoaded = async () => {
     if (!currentTenant || catalogsLoaded || catalogLoading) {
       return;
@@ -394,7 +442,7 @@ export default function Salud() {
 
     try {
       setCatalogLoading(true);
-      await Promise.all([loadMedications(), loadDiagnoses(), loadTreatments()]);
+      await Promise.all([loadMedications(), loadDiagnoses(), loadTreatments(), loadVaccineCatalog()]);
       setClinicalCatalogsLoaded(true);
     } finally {
       setCatalogLoading(false);
@@ -498,17 +546,100 @@ export default function Salud() {
       end_date: endDate.toISOString().split('T')[0]
     };
 
+    const newBillableItem: BillableItem = {
+      type: 'service',
+      id: treatment.id,
+      name: `Tratamiento: ${treatment.name}`,
+      quantity: 1,
+      unit_price: treatment.price || 0,
+      notes: 'Agregado automaticamente'
+    };
+
+    const updatedBillableItems = treatment.price && treatment.price > 0
+      ? [...formData.billable_items, newBillableItem]
+      : formData.billable_items;
+
     setFormData({
       ...formData,
-      treatments: [...formData.treatments, newTreatment]
+      treatments: [...formData.treatments, newTreatment],
+      billable_items: updatedBillableItems
     });
     setShowTreatmentModal(false);
   };
 
-  const removeTreatment = (index: number) => {
+  const addVaccine = (vaccine: VaccineCatalog) => {
+    const selectedPet = pets.find(p => p.id === formData.pet_id);
+    const petSpecies = selectedPet?.species?.toLowerCase() || '';
+
+    if (vaccine.species && vaccine.species.length > 0) {
+      const speciesMatch = vaccine.species.some(s =>
+        s.toLowerCase() === petSpecies ||
+        petSpecies.includes(s.toLowerCase()) ||
+        s.toLowerCase().includes(petSpecies)
+      );
+      if (!speciesMatch && petSpecies) {
+        showError(`Esta vacuna no es aplicable para ${selectedPet?.species}`);
+        return;
+      }
+    }
+
+    const nextDoseDate = new Date();
+    nextDoseDate.setDate(nextDoseDate.getDate() + (vaccine.interval_days || 365));
+
+    const newVaccine: VaccineItem = {
+      vaccine_id: vaccine.id,
+      vaccine_name: vaccine.name,
+      batch_number: '',
+      dose_number: 1,
+      next_dose_date: nextDoseDate.toISOString().split('T')[0],
+      price: vaccine.price,
+      notes: ''
+    };
+
+    const newBillableItem: BillableItem = {
+      type: 'service',
+      id: vaccine.id,
+      name: `Vacuna: ${vaccine.name}`,
+      quantity: 1,
+      unit_price: vaccine.price || 0,
+      notes: 'Agregado automaticamente'
+    };
+
+    const updatedBillableItems = vaccine.price > 0
+      ? [...formData.billable_items, newBillableItem]
+      : formData.billable_items;
+
     setFormData({
       ...formData,
-      treatments: formData.treatments.filter((_, i) => i !== index)
+      vaccines: [...formData.vaccines, newVaccine],
+      billable_items: updatedBillableItems
+    });
+    setShowVaccineModal(false);
+  };
+
+  const removeVaccine = (index: number) => {
+    const vaccineToRemove = formData.vaccines[index];
+    const updatedBillableItems = formData.billable_items.filter(
+      item => !(item.name === `Vacuna: ${vaccineToRemove.vaccine_name}` && item.id === vaccineToRemove.vaccine_id)
+    );
+
+    setFormData({
+      ...formData,
+      vaccines: formData.vaccines.filter((_, i) => i !== index),
+      billable_items: updatedBillableItems
+    });
+  };
+
+  const removeTreatment = (index: number) => {
+    const treatmentToRemove = formData.treatments[index];
+    const updatedBillableItems = formData.billable_items.filter(
+      item => !(item.name === `Tratamiento: ${treatmentToRemove.treatment_name}` && item.id === treatmentToRemove.treatment_id)
+    );
+
+    setFormData({
+      ...formData,
+      treatments: formData.treatments.filter((_, i) => i !== index),
+      billable_items: updatedBillableItems
     });
   };
 
@@ -593,6 +724,38 @@ export default function Salud() {
         await supabase.from('consultation_treatments').insert(treatmentsData);
       }
 
+      if (formData.vaccines.length > 0) {
+        await supabase.from('consultation_vaccines').delete().eq('consultation_id', consultationId);
+        const vaccinesData = formData.vaccines.map(v => ({
+          tenant_id: currentTenant!.id,
+          consultation_id: consultationId,
+          vaccine_id: v.vaccine_id,
+          vaccine_name: v.vaccine_name,
+          batch_number: v.batch_number || null,
+          expiry_date: v.expiry_date || null,
+          dose_number: v.dose_number,
+          next_dose_date: v.next_dose_date || null,
+          price: v.price,
+          notes: v.notes || null
+        }));
+        await supabase.from('consultation_vaccines').insert(vaccinesData);
+
+        for (const vaccine of formData.vaccines) {
+          await supabase.from('pet_health').insert({
+            tenant_id: currentTenant!.id,
+            pet_id: formData.pet_id,
+            user_id: userData.user.id,
+            type: 'vaccine',
+            name: vaccine.vaccine_name,
+            application_date: new Date().toISOString(),
+            next_due_date: vaccine.next_dose_date,
+            veterinarian: userData.user.email,
+            notes: vaccine.notes,
+            status: 'applied'
+          });
+        }
+      }
+
       if (formData.prescriptions.length > 0) {
         await supabase.from('prescriptions').delete().eq('consultation_id', consultationId);
         for (const prescription of formData.prescriptions) {
@@ -647,6 +810,7 @@ export default function Salud() {
       heart_rate: '',
       notes: '',
       billable_items: [],
+      vaccines: [],
       diagnoses: [],
       treatments: [],
       prescriptions: []
@@ -664,7 +828,7 @@ export default function Salud() {
     try {
       await ensureConsultationFormCatalogs();
 
-      const [consultationResult, diagnosesResult, treatmentsResult, prescriptionsResult] = await Promise.all([
+      const [consultationResult, diagnosesResult, treatmentsResult, vaccinesResult, prescriptionsResult] = await Promise.all([
         supabase
           .from('consultations')
           .select('*')
@@ -679,6 +843,10 @@ export default function Salud() {
           .select('*')
           .eq('consultation_id', consultation.id),
         supabase
+          .from('consultation_vaccines')
+          .select('*')
+          .eq('consultation_id', consultation.id),
+        supabase
           .from('prescriptions')
           .select('*')
           .eq('consultation_id', consultation.id),
@@ -687,11 +855,13 @@ export default function Salud() {
       const { data, error } = consultationResult;
       const { data: diagnosesData, error: diagnosesError } = diagnosesResult;
       const { data: treatmentsData, error: treatmentsError } = treatmentsResult;
+      const { data: vaccinesData, error: vaccinesError } = vaccinesResult;
       const { data: prescriptionsData, error: prescriptionsError } = prescriptionsResult;
 
       if (error) throw error;
       if (diagnosesError) throw diagnosesError;
       if (treatmentsError) throw treatmentsError;
+      if (vaccinesError) throw vaccinesError;
       if (prescriptionsError) throw prescriptionsError;
 
       setFormData({
@@ -709,6 +879,16 @@ export default function Salud() {
           diagnosis_name: d.diagnosis_name,
           notes: d.notes,
           is_primary: d.is_primary
+        })) || [],
+        vaccines: vaccinesData?.map(v => ({
+          vaccine_id: v.vaccine_id,
+          vaccine_name: v.vaccine_name,
+          batch_number: v.batch_number,
+          expiry_date: v.expiry_date,
+          dose_number: v.dose_number,
+          next_dose_date: v.next_dose_date,
+          price: v.price,
+          notes: v.notes
         })) || [],
         treatments: treatmentsData?.map(t => ({
           treatment_id: t.treatment_id,
@@ -764,6 +944,14 @@ export default function Salud() {
   const filteredTreatments = treatments.filter(t =>
     t.name.toLowerCase().includes(itemSearchTerm.toLowerCase())
   );
+
+  const selectedPetSpecies = pets.find(p => p.id === formData.pet_id)?.species?.toLowerCase() || '';
+  const filteredVaccines = vaccineCatalog.filter(v => {
+    const matchesSearch = v.name.toLowerCase().includes(itemSearchTerm.toLowerCase());
+    const matchesSpecies = !selectedPetSpecies || !v.species || v.species.length === 0 ||
+      v.species.some(s => s.toLowerCase() === selectedPetSpecies || selectedPetSpecies.includes(s.toLowerCase()));
+    return matchesSearch && matchesSpecies;
+  });
 
   const columns = [
     { key: 'date', label: 'Fecha', render: (_value: string, row: Consultation) => new Date(row.date).toLocaleDateString('es-ES') },
@@ -1100,6 +1288,59 @@ export default function Salud() {
             <div className={softSectionClassName}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <Syringe className="w-5 h-5 text-teal-600" />
+                  Vacunacion
+                </h3>
+                <button
+                  onClick={() => {
+                    if (!formData.pet_id) {
+                      showError('Selecciona una mascota primero');
+                      return;
+                    }
+                    setShowVaccineModal(true);
+                  }}
+                  className={accentButtonClassName}
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar
+                </button>
+              </div>
+
+              {formData.vaccines.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">
+                  No hay vacunas aplicadas
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {formData.vaccines.map((vaccine, index) => (
+                    <div key={index} className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3 shadow-sm">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Syringe className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-medium text-slate-900">{vaccine.vaccine_name}</span>
+                          <Badge variant="success">Dosis {vaccine.dose_number}</Badge>
+                        </div>
+                        <div className="flex gap-4 mt-1 text-xs text-slate-500">
+                          {vaccine.batch_number && <span>Lote: {vaccine.batch_number}</span>}
+                          {vaccine.next_dose_date && <span>Proxima: {new Date(vaccine.next_dose_date).toLocaleDateString('es-ES')}</span>}
+                          {vaccine.price > 0 && <span className="text-green-600 font-medium">${vaccine.price.toFixed(2)}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeVaccine(index)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className={softSectionClassName}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                   <Pill className="w-5 h-5 text-teal-600" />
                   Prescripciones
                 </h3>
@@ -1419,12 +1660,89 @@ export default function Salud() {
                       <p className="text-sm text-slate-500 mt-1">{treatment.description}</p>
                     )}
                     {treatment.duration_days && (
-                      <p className="text-xs text-slate-400 mt-1">Duración: {treatment.duration_days} días</p>
+                      <p className="text-xs text-slate-400 mt-1">Duracion: {treatment.duration_days} dias</p>
                     )}
                     <Badge variant="info" className="mt-1">{treatment.category}</Badge>
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showVaccineModal && (
+        <Modal
+          isOpen={showVaccineModal}
+          onClose={() => {setShowVaccineModal(false); setItemSearchTerm('');}}
+          title="Aplicar Vacuna"
+        >
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-2">
+              <div className="flex items-center gap-2">
+                <Syringe className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-green-900">
+                    Vacunas para: {pets.find(p => p.id === formData.pet_id)?.name || 'Mascota'}
+                  </p>
+                  <p className="text-xs text-green-700">
+                    Especie: {pets.find(p => p.id === formData.pet_id)?.species || 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar vacuna..."
+                value={itemSearchTerm}
+                onChange={(e) => setItemSearchTerm(e.target.value)}
+                className={`${subtleInputClassName} pl-10`}
+              />
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {filteredVaccines.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">
+                  No hay vacunas disponibles para esta especie
+                </p>
+              ) : (
+                filteredVaccines.map(vaccine => (
+                  <button
+                    key={vaccine.id}
+                    onClick={() => addVaccine(vaccine)}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-green-300 hover:bg-green-50/50"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900">{vaccine.name}</p>
+                          {vaccine.is_required && (
+                            <Badge variant="warning">Obligatoria</Badge>
+                          )}
+                        </div>
+                        {vaccine.description && (
+                          <p className="text-sm text-slate-500 mt-1">{vaccine.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {vaccine.manufacturer && (
+                            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">{vaccine.manufacturer}</span>
+                          )}
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            {vaccine.required_doses} dosis
+                          </span>
+                          <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">
+                            Refuerzo: {vaccine.interval_days} dias
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-lg font-bold text-green-700">${vaccine.price.toFixed(2)}</span>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </Modal>
