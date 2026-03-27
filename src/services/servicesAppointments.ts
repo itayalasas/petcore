@@ -165,7 +165,7 @@ export const appointmentsService = {
         pet:pets(id, name, species, breed),
         owner:owners(id, first_name, last_name, phone),
         service:services(*),
-        veterinarian:profiles(id, first_name, last_name),
+        veterinarian:profiles!appointments_veterinarian_id_fkey(id, first_name, last_name),
         location:locations(id, name),
         assigned_user:profiles!appointments_assigned_user_fkey(id, first_name, last_name)
       `)
@@ -184,8 +184,9 @@ export const appointmentsService = {
         pet:pets(*),
         owner:owners(*),
         service:services(*),
-        veterinarian:profiles(*),
-        location:locations(*)
+        veterinarian:profiles!appointments_veterinarian_id_fkey(*),
+        location:locations(*),
+        assigned_user:profiles!appointments_assigned_user_fkey(id, first_name, last_name)
       `)
       .eq('tenant_id', tenantId)
       .gte('scheduled_at', new Date().toISOString())
@@ -210,8 +211,9 @@ export const appointmentsService = {
         pet:pets(*),
         owner:owners(*),
         service:services(*),
-        veterinarian:profiles(*),
-        location:locations(*)
+        veterinarian:profiles!appointments_veterinarian_id_fkey(*),
+        location:locations(*),
+        assigned_user:profiles!appointments_assigned_user_fkey(id, first_name, last_name)
       `)
       .eq('tenant_id', tenantId)
       .gte('scheduled_at', startOfDay.toISOString())
