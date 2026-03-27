@@ -165,7 +165,7 @@ export default function Estetica() {
     const appointments = await appointmentsService.getAll(currentTenant.id);
     const groomingAppointments = appointments.filter(
       a => a.service?.service_type === 'grooming' &&
-           (a.status === 'pending' || a.status === 'confirmed')
+           (a.status === 'pending' || a.status === 'confirmed' || a.status === 'scheduled')
     );
     setPendingAppointments(groomingAppointments);
   };
@@ -212,6 +212,7 @@ export default function Estetica() {
         notes: formData.notes,
         price: formData.price,
         status: formData.status,
+        appointment_id: selectedAppointment?.id || null,
       };
 
       if (editingService) {
@@ -221,6 +222,11 @@ export default function Estetica() {
           .eq('id', editingService.id);
 
         if (error) throw error;
+
+        if (editingService.appointment_id && formData.status === 'completed') {
+          await appointmentsService.updateStatus(editingService.appointment_id, 'completed');
+        }
+
         showSuccess('Servicio actualizado');
       } else {
         const { error } = await supabase
@@ -229,8 +235,9 @@ export default function Estetica() {
 
         if (error) throw error;
 
-        if (selectedAppointment && formData.status === 'completed') {
-          await appointmentsService.updateStatus(selectedAppointment.id, 'completed');
+        if (selectedAppointment) {
+          const newStatus = formData.status === 'completed' ? 'completed' : 'in_progress';
+          await appointmentsService.updateStatus(selectedAppointment.id, newStatus);
         }
 
         showSuccess('Servicio registrado');
@@ -254,8 +261,14 @@ export default function Estetica() {
         .eq('id', service.id);
 
       if (error) throw error;
+
+      if (service.appointment_id) {
+        await appointmentsService.updateStatus(service.appointment_id, 'completed');
+      }
+
       showSuccess('Servicio completado');
       await loadPetServices();
+      await loadPendingAppointments();
     } catch (error) {
       console.error('Error completing service:', error);
       showError('Error al completar el servicio');
