@@ -1,9 +1,10 @@
-import { Save, Sliders, Globe, Mail, Bell, Shield, Database, Palette, Zap, DollarSign, Building2, MapPin, Clock, Plus, CreditCard as Edit2, Trash2 } from 'lucide-react';
+import { Save, Sliders, Globe, Mail, Bell, Shield, Database, Palette, Zap, DollarSign, Building2, MapPin, Clock, Plus, CreditCard as Edit2, Trash2, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { FormField, Input, Textarea } from '../ui/FormField';
 import Select from '../ui/Select';
 import SubscriptionCard from '../ui/SubscriptionCard';
 import ModuleLicensingCard from '../ui/ModuleLicensingCard';
+import SystemParameters from './SystemParameters';
 
 export default function Configuracion() {
   const [activeTab, setActiveTab] = useState('general');
@@ -33,6 +34,7 @@ export default function Configuracion() {
 
   const tabs = [
     { id: 'general', label: 'General', icon: Sliders },
+    { id: 'parametros', label: 'Parametros', icon: Settings2 },
     { id: 'licencias', label: 'Licencias', icon: Shield },
     { id: 'empresa', label: 'Empresa', icon: Globe },
     { id: 'sucursales', label: 'Sucursales', icon: Building2 },
@@ -174,6 +176,10 @@ export default function Configuracion() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'parametros' && (
+            <SystemParameters />
           )}
 
           {activeTab === 'licencias' && (
