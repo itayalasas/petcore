@@ -121,7 +121,7 @@ export default function Agenda() {
         employeesService.getAll(currentTenant.id),
         servicesService.getAll(currentTenant.id),
         referralsService.getPending(currentTenant.id),
-        petsService.getAll(currentTenant.id),
+        petsService.getAllPets(currentTenant.id),
         ownersService.getAll(currentTenant.id),
       ]);
       setAppointments(appts);
