@@ -405,17 +405,32 @@ export default function Salud() {
 
   const loadVaccineCatalog = async () => {
     try {
-      await supabase.rpc('seed_tenant_vaccines', { p_tenant_id: currentTenant!.id });
-
       const { data, error } = await supabase
-        .from('vaccine_catalog')
+        .from('system_parameters')
         .select('*')
         .eq('tenant_id', currentTenant!.id)
+        .eq('type', 'vaccine')
         .eq('is_active', true)
+        .order('sort_order')
         .order('name');
 
       if (error) throw error;
-      setVaccineCatalog(data || []);
+
+      const vaccines: VaccineCatalog[] = (data || []).map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        description: v.description,
+        species: v.value?.species || ['perro', 'gato'],
+        manufacturer: v.value?.manufacturer || null,
+        dose_ml: v.value?.dose_ml || null,
+        price: v.value?.price || 0,
+        interval_days: v.value?.interval_days || 365,
+        required_doses: v.value?.required_doses || 1,
+        is_required: v.value?.is_required || false,
+        min_age_weeks: v.value?.min_age_weeks || 6
+      }));
+
+      setVaccineCatalog(vaccines);
     } catch (error) {
       console.error('Error loading vaccine catalog:', error);
     }
@@ -945,11 +960,31 @@ export default function Salud() {
     t.name.toLowerCase().includes(itemSearchTerm.toLowerCase())
   );
 
+  const speciesMapping: Record<string, string[]> = {
+    'perro': ['perro', 'dog', 'canino', 'can'],
+    'gato': ['gato', 'cat', 'felino'],
+    'ave': ['ave', 'bird', 'pajaro'],
+    'roedor': ['roedor', 'rodent', 'hamster', 'conejo', 'rabbit'],
+    'reptil': ['reptil', 'reptile', 'tortuga', 'iguana']
+  };
+
+  const normalizeSpecies = (species: string): string[] => {
+    const lower = species.toLowerCase();
+    for (const [normalized, variants] of Object.entries(speciesMapping)) {
+      if (variants.includes(lower)) {
+        return [normalized, ...variants];
+      }
+    }
+    return [lower];
+  };
+
   const selectedPetSpecies = pets.find(p => p.id === formData.pet_id)?.species?.toLowerCase() || '';
+  const normalizedPetSpecies = normalizeSpecies(selectedPetSpecies);
+
   const filteredVaccines = vaccineCatalog.filter(v => {
     const matchesSearch = v.name.toLowerCase().includes(itemSearchTerm.toLowerCase());
     const matchesSpecies = !selectedPetSpecies || !v.species || v.species.length === 0 ||
-      v.species.some(s => s.toLowerCase() === selectedPetSpecies || selectedPetSpecies.includes(s.toLowerCase()));
+      v.species.some(s => normalizedPetSpecies.includes(s.toLowerCase()));
     return matchesSearch && matchesSpecies;
   });
 

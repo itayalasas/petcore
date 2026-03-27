@@ -34,7 +34,12 @@ export default function SystemParameters() {
     description: '',
     value: '{}',
     sort_order: 0,
-    is_active: true
+    is_active: true,
+    vaccine_price: '',
+    vaccine_species: ['perro', 'gato'] as string[],
+    vaccine_interval_days: '365',
+    vaccine_required_doses: '1',
+    vaccine_is_required: false
   });
 
   useEffect(() => {
@@ -70,13 +75,19 @@ export default function SystemParameters() {
       description: '',
       value: '{}',
       sort_order: 0,
-      is_active: true
+      is_active: true,
+      vaccine_price: '',
+      vaccine_species: ['perro', 'gato'],
+      vaccine_interval_days: '365',
+      vaccine_required_doses: '1',
+      vaccine_is_required: false
     });
     setShowFormModal(true);
   };
 
   const handleEdit = (param: SystemParameter) => {
     setEditingParam(param);
+    const val = param.value || {};
     setFormData({
       code: param.code || '',
       type: param.type,
@@ -84,7 +95,12 @@ export default function SystemParameters() {
       description: param.description || '',
       value: JSON.stringify(param.value, null, 2),
       sort_order: param.sort_order,
-      is_active: param.is_active
+      is_active: param.is_active,
+      vaccine_price: val.price?.toString() || '',
+      vaccine_species: val.species || ['perro', 'gato'],
+      vaccine_interval_days: val.interval_days?.toString() || '365',
+      vaccine_required_doses: val.required_doses?.toString() || '1',
+      vaccine_is_required: val.is_required || false
     });
     setShowFormModal(true);
   };
@@ -93,12 +109,23 @@ export default function SystemParameters() {
     if (!currentTenant) return;
 
     try {
-      let parsedValue = {};
-      try {
-        parsedValue = JSON.parse(formData.value || '{}');
-      } catch {
-        showError('El campo "Valor" debe ser un JSON valido');
-        return;
+      let parsedValue: Record<string, unknown> = {};
+
+      if (formData.type === 'vaccine') {
+        parsedValue = {
+          price: parseFloat(formData.vaccine_price) || 0,
+          species: formData.vaccine_species,
+          interval_days: parseInt(formData.vaccine_interval_days) || 365,
+          required_doses: parseInt(formData.vaccine_required_doses) || 1,
+          is_required: formData.vaccine_is_required
+        };
+      } else {
+        try {
+          parsedValue = JSON.parse(formData.value || '{}');
+        } catch {
+          showError('El campo "Valor" debe ser un JSON valido');
+          return;
+        }
       }
 
       if (editingParam) {
@@ -457,18 +484,82 @@ export default function SystemParameters() {
             />
           </FormField>
 
-          <FormField label="Valor (JSON)">
-            <Textarea
-              value={formData.value}
-              onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-              placeholder='{"price": 100, "duration": 30}'
-              rows={3}
-              className="font-mono text-sm"
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Datos adicionales en formato JSON (precio, duracion, etc.)
-            </p>
-          </FormField>
+          {formData.type === 'vaccine' ? (
+            <div className="space-y-4 p-4 bg-green-50 rounded-lg border border-green-200">
+              <h4 className="font-medium text-green-900 text-sm">Configuracion de Vacuna</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Precio" required>
+                  <Input
+                    type="number"
+                    value={formData.vaccine_price}
+                    onChange={(e) => setFormData({ ...formData, vaccine_price: e.target.value })}
+                    placeholder="0.00"
+                    step="0.01"
+                  />
+                </FormField>
+                <FormField label="Intervalo (dias)">
+                  <Input
+                    type="number"
+                    value={formData.vaccine_interval_days}
+                    onChange={(e) => setFormData({ ...formData, vaccine_interval_days: e.target.value })}
+                    placeholder="365"
+                  />
+                </FormField>
+                <FormField label="Dosis requeridas">
+                  <Input
+                    type="number"
+                    value={formData.vaccine_required_doses}
+                    onChange={(e) => setFormData({ ...formData, vaccine_required_doses: e.target.value })}
+                    placeholder="1"
+                  />
+                </FormField>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 cursor-pointer pb-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.vaccine_is_required}
+                      onChange={(e) => setFormData({ ...formData, vaccine_is_required: e.target.checked })}
+                      className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                    />
+                    <span className="text-sm text-slate-700">Vacuna obligatoria</span>
+                  </label>
+                </div>
+              </div>
+              <FormField label="Especies aplicables">
+                <div className="flex flex-wrap gap-3">
+                  {['perro', 'gato', 'ave', 'roedor', 'reptil'].map(species => (
+                    <label key={species} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.vaccine_species.includes(species)}
+                        onChange={(e) => {
+                          const newSpecies = e.target.checked
+                            ? [...formData.vaccine_species, species]
+                            : formData.vaccine_species.filter(s => s !== species);
+                          setFormData({ ...formData, vaccine_species: newSpecies });
+                        }}
+                        className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                      />
+                      <span className="text-sm text-slate-700 capitalize">{species}</span>
+                    </label>
+                  ))}
+                </div>
+              </FormField>
+            </div>
+          ) : (
+            <FormField label="Valor (JSON)">
+              <Textarea
+                value={formData.value}
+                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                placeholder='{"price": 100, "duration": 30}'
+                rows={3}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Datos adicionales en formato JSON (precio, duracion, etc.)
+              </p>
+            </FormField>
+          )}
 
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 cursor-pointer">
