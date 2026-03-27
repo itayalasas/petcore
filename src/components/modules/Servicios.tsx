@@ -1,6 +1,6 @@
-import { Plus, Calendar, Loader, CreditCard as Edit2, Trash2, Stethoscope } from 'lucide-react';
+import { Plus, Calendar, Loader, CreditCard as Edit2, Trash2, Stethoscope, Scissors, Sun } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import Table from '../ui/Table';
+import Table, { TableAction } from '../ui/Table';
 import Filters from '../ui/Filters';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
@@ -280,24 +280,45 @@ export default function Servicios() {
     }
   };
 
-  const tableActions = [
-    {
-      label: 'Atender',
-      icon: <Stethoscope className="w-4 h-4" />,
-      onClick: handleStartConsultation,
-    },
-    {
-      label: 'Editar',
-      icon: <Edit2 className="w-4 h-4" />,
-      onClick: handleEdit,
-    },
-    {
-      label: 'Eliminar',
-      icon: <Trash2 className="w-4 h-4" />,
-      onClick: handleDelete,
-      variant: 'danger' as const,
-    },
-  ];
+  const getTableActions = (row: AppointmentWithDetails): TableAction[] => {
+    const serviceType = row.service?.service_type || 'veterinary';
+
+    let actionLabel: string;
+    let actionIcon: React.ReactNode;
+
+    switch (serviceType) {
+      case 'grooming':
+        actionLabel = 'Iniciar Estetica';
+        actionIcon = <Scissors className="w-4 h-4" />;
+        break;
+      case 'daycare':
+        actionLabel = 'Iniciar Cuidado';
+        actionIcon = <Sun className="w-4 h-4" />;
+        break;
+      default:
+        actionLabel = 'Atender Consulta';
+        actionIcon = <Stethoscope className="w-4 h-4" />;
+    }
+
+    return [
+      {
+        label: actionLabel,
+        icon: actionIcon,
+        onClick: handleStartConsultation,
+      },
+      {
+        label: 'Editar',
+        icon: <Edit2 className="w-4 h-4" />,
+        onClick: handleEdit,
+      },
+      {
+        label: 'Eliminar',
+        icon: <Trash2 className="w-4 h-4" />,
+        onClick: handleDelete,
+        variant: 'danger' as const,
+      },
+    ];
+  };
 
   const columns = [
     {
@@ -461,7 +482,7 @@ export default function Servicios() {
         />
       </div>
 
-      <Table columns={columns} data={appointments} actions={tableActions} />
+      <Table columns={columns} data={appointments} actions={getTableActions} />
 
       <Modal
         isOpen={showBookingModal}

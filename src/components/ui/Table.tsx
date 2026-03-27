@@ -10,7 +10,7 @@ interface Column {
   render?: (value: any, row: any) => ReactNode;
 }
 
-interface TableAction {
+export interface TableAction {
   label: string;
   icon?: ReactNode;
   onClick: (row: any) => void;
@@ -21,7 +21,7 @@ interface TableProps {
   columns: Column[];
   data: any[];
   onRowClick?: (row: any) => void;
-  actions?: TableAction[];
+  actions?: TableAction[] | ((row: any) => TableAction[]);
 }
 
 interface MenuPosition {
@@ -57,7 +57,12 @@ export default function Table({ columns, data, onRowClick, actions }: TableProps
     };
   }, []);
 
-  const handleMenuOpen = (idx: number, buttonEl: HTMLButtonElement) => {
+  const getRowActions = (row: any): TableAction[] => {
+    if (!actions) return [];
+    return typeof actions === 'function' ? actions(row) : actions;
+  };
+
+  const handleMenuOpen = (idx: number, buttonEl: HTMLButtonElement, row: any) => {
     if (openMenuIndex === idx) {
       setOpenMenuIndex(null);
       return;
@@ -65,7 +70,8 @@ export default function Table({ columns, data, onRowClick, actions }: TableProps
 
     const rect = buttonEl.getBoundingClientRect();
     const menuWidth = 192;
-    const menuHeight = actions ? actions.length * 40 + 8 : 100;
+    const rowActions = getRowActions(row);
+    const menuHeight = rowActions.length * 40 + 8;
 
     let top = rect.bottom + 4;
     let left = rect.right - menuWidth;
@@ -105,7 +111,7 @@ export default function Table({ columns, data, onRowClick, actions }: TableProps
                   </div>
                 </th>
               ))}
-              {actions && actions.length > 0 && (
+              {actions && (
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider w-24">
                   Acciones
                 </th>
@@ -124,48 +130,51 @@ export default function Table({ columns, data, onRowClick, actions }: TableProps
                     {column.render ? column.render(row[column.key], row) : row[column.key]}
                   </td>
                 ))}
-                {actions && actions.length > 0 && (
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      ref={(el) => { buttonRefs.current[idx] = el; }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMenuOpen(idx, e.currentTarget);
-                      }}
-                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors inline-flex items-center justify-center"
-                    >
-                      <MoreVertical className="w-4 h-4 text-gray-500" />
-                    </button>
-
-                    {openMenuIndex === idx && createPortal(
-                      <div
-                        ref={menuRef}
-                        style={{ top: menuPosition.top, left: menuPosition.left }}
-                        className="fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999] animate-in fade-in slide-in-from-top-2"
+                {actions && (() => {
+                  const rowActions = getRowActions(row);
+                  return rowActions.length > 0 ? (
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        ref={(el) => { buttonRefs.current[idx] = el; }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMenuOpen(idx, e.currentTarget, row);
+                        }}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors inline-flex items-center justify-center"
                       >
-                        {actions.map((action, actionIdx) => (
-                          <button
-                            key={actionIdx}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              action.onClick(row);
-                              setOpenMenuIndex(null);
-                            }}
-                            className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 transition-colors ${
-                              action.variant === 'danger'
-                                ? 'text-red-600 hover:bg-red-50'
-                                : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {action.icon}
-                            {action.label}
-                          </button>
-                        ))}
-                      </div>,
-                      document.body
-                    )}
-                  </td>
-                )}
+                        <MoreVertical className="w-4 h-4 text-gray-500" />
+                      </button>
+
+                      {openMenuIndex === idx && createPortal(
+                        <div
+                          ref={menuRef}
+                          style={{ top: menuPosition.top, left: menuPosition.left }}
+                          className="fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999] animate-in fade-in slide-in-from-top-2"
+                        >
+                          {rowActions.map((action, actionIdx) => (
+                            <button
+                              key={actionIdx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                action.onClick(row);
+                                setOpenMenuIndex(null);
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm flex items-center gap-3 transition-colors ${
+                                action.variant === 'danger'
+                                  ? 'text-red-600 hover:bg-red-50'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {action.icon}
+                              {action.label}
+                            </button>
+                          ))}
+                        </div>,
+                        document.body
+                      )}
+                    </td>
+                  ) : <td className="px-6 py-4" />;
+                })()}
               </tr>
             ))}
           </tbody>
