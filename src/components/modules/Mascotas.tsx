@@ -1,4 +1,4 @@
-import { Plus, PawPrint, Calendar, User, Phone, MapPin, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader } from 'lucide-react';
+import { Plus, PawPrint, Calendar, User, Phone, MapPin, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader, Stethoscope } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Table from '../ui/Table';
 import Filters from '../ui/Filters';
@@ -23,6 +23,7 @@ export default function Mascotas() {
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [selectedPetHealth, setSelectedPetHealth] = useState<PetHealth[]>([]);
   const [selectedPetBookings, setSelectedPetBookings] = useState<any[]>([]);
+  const [selectedPetConsultations, setSelectedPetConsultations] = useState<any[]>([]);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
   const [ownerType, setOwnerType] = useState<'existing' | 'new'>('existing');
@@ -58,12 +59,14 @@ export default function Mascotas() {
     if (!currentTenant) return;
 
     try {
-      const [healthRecords, bookings] = await Promise.all([
+      const [healthRecords, bookings, consultations] = await Promise.all([
         petsService.getPetHealthRecords(pet.id, currentTenant.id),
-        petsService.getBookingsByPet(pet.id, currentTenant.id)
+        petsService.getBookingsByPet(pet.id, currentTenant.id),
+        petsService.getConsultationsByPet(pet.id, currentTenant.id)
       ]);
       setSelectedPetHealth(healthRecords);
       setSelectedPetBookings(bookings);
+      setSelectedPetConsultations(consultations || []);
     } catch (error) {
       console.error('Error loading pet details:', error);
     }
@@ -880,6 +883,136 @@ export default function Mascotas() {
                             <span className="text-sm font-medium text-gray-900">27.0 kg</span>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: 'consultations',
+                label: 'Consultas',
+                icon: Stethoscope,
+                badge: selectedPetConsultations.length,
+                content: (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                            <Stethoscope className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-teal-700">Total consultas</p>
+                            <p className="font-semibold text-teal-900">{selectedPetConsultations.length}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-green-700">Completadas</p>
+                            <p className="font-semibold text-green-900">
+                              {selectedPetConsultations.filter(c => c.status === 'completed').length}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-500 mb-1">Ultima consulta</p>
+                        <p className="font-semibold text-gray-900">
+                          {selectedPetConsultations.length > 0
+                            ? new Date(selectedPetConsultations[0].date).toLocaleDateString('es-ES')
+                            : 'Sin consultas'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de consultas</h3>
+                      <div className="space-y-3">
+                        {selectedPetConsultations.map((consultation) => (
+                          <div
+                            key={consultation.id}
+                            className={`p-4 border rounded-lg ${
+                              consultation.status === 'completed'
+                                ? 'bg-white border-gray-200'
+                                : 'bg-amber-50 border-amber-200'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-3">
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                  consultation.status === 'completed' ? 'bg-teal-100' : 'bg-amber-100'
+                                }`}>
+                                  <Stethoscope className={`w-5 h-5 ${
+                                    consultation.status === 'completed' ? 'text-teal-600' : 'text-amber-600'
+                                  }`} />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {consultation.reason || 'Consulta general'}
+                                  </p>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    {new Date(consultation.date).toLocaleDateString('es-ES', {
+                                      weekday: 'long',
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <User className="w-4 h-4 text-gray-400" />
+                                    <span className="text-xs text-gray-600">
+                                      Atendido por: <span className="font-medium text-gray-900">
+                                        {consultation.veterinarian?.display_name || 'Veterinario no registrado'}
+                                      </span>
+                                    </span>
+                                  </div>
+                                  {consultation.diagnosis && (
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      <span className="font-medium">Diagnostico:</span> {consultation.diagnosis}
+                                    </p>
+                                  )}
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {consultation.weight && (
+                                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                        <Scale className="w-3 h-3" />
+                                        {consultation.weight} kg
+                                      </span>
+                                    )}
+                                    {consultation.temperature && (
+                                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                        {consultation.temperature}°C
+                                      </span>
+                                    )}
+                                    {consultation.heart_rate && (
+                                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                        <Heart className="w-3 h-3" />
+                                        {consultation.heart_rate} BPM
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge variant={consultation.status === 'completed' ? 'success' : 'warning'}>
+                                  {consultation.status === 'completed' ? 'Completada' : 'En progreso'}
+                                </Badge>
+                                {consultation.total_amount > 0 && (
+                                  <p className="text-sm font-semibold text-gray-900 mt-2">
+                                    ${consultation.total_amount.toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {selectedPetConsultations.length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No hay consultas registradas</p>
+                        )}
                       </div>
                     </div>
                   </div>

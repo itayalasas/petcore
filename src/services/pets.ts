@@ -273,5 +273,39 @@ export const petsService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getConsultationsByPet(petId: string, tenantId?: string) {
+    let query = supabase
+      .from('consultations')
+      .select(`
+        id,
+        date,
+        reason,
+        symptoms,
+        diagnosis,
+        treatment,
+        weight,
+        temperature,
+        heart_rate,
+        notes,
+        status,
+        total_amount,
+        billed,
+        veterinarian:profiles!consultations_veterinarian_id_fkey (
+          id,
+          display_name
+        )
+      `)
+      .eq('pet_id', petId);
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query.order('date', { ascending: false });
+
+    if (error) throw error;
+    return data;
   }
 };
