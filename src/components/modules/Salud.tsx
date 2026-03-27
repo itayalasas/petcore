@@ -585,12 +585,11 @@ export default function Salud() {
   const addVaccine = (vaccine: VaccineCatalog) => {
     const selectedPet = pets.find(p => p.id === formData.pet_id);
     const petSpecies = selectedPet?.species?.toLowerCase() || '';
+    const normalizedPetSpeciesForValidation = normalizeSpecies(petSpecies);
 
     if (vaccine.species && vaccine.species.length > 0) {
       const speciesMatch = vaccine.species.some(s =>
-        s.toLowerCase() === petSpecies ||
-        petSpecies.includes(s.toLowerCase()) ||
-        s.toLowerCase().includes(petSpecies)
+        normalizedPetSpeciesForValidation.includes(s.toLowerCase())
       );
       if (!speciesMatch && petSpecies) {
         showError(`Esta vacuna no es aplicable para ${selectedPet?.species}`);
