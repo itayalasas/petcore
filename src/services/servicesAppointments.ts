@@ -24,9 +24,12 @@ export interface Appointment {
   service_id?: string;
   veterinarian_id?: string;
   location_id?: string;
+  employee_id?: string;
+  case_id?: string;
+  referral_id?: string;
   scheduled_at: string;
   duration_minutes: number;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   price?: number;
   notes?: string;
   created_at: string;
@@ -34,11 +37,12 @@ export interface Appointment {
 }
 
 export interface AppointmentWithDetails extends Appointment {
-  pet?: any;
-  owner?: any;
+  pet?: { id: string; name: string; species: string; breed: string };
+  owner?: { id: string; first_name: string; last_name: string; phone: string };
   service?: Service;
-  veterinarian?: any;
-  location?: any;
+  veterinarian?: { id: string; first_name: string; last_name: string };
+  location?: { id: string; name: string };
+  employee?: { id: string; first_name: string; last_name: string; department: string };
 }
 
 export interface CreateServiceData {
@@ -55,6 +59,9 @@ export interface CreateAppointmentData {
   service_id?: string;
   veterinarian_id?: string;
   location_id?: string;
+  employee_id?: string;
+  case_id?: string;
+  referral_id?: string;
   scheduled_at: string;
   duration_minutes?: number;
   price?: number;
@@ -155,11 +162,12 @@ export const appointmentsService = {
       .from('appointments')
       .select(`
         *,
-        pet:pets(*),
-        owner:owners(*),
+        pet:pets(id, name, species, breed),
+        owner:owners(id, first_name, last_name, phone),
         service:services(*),
-        veterinarian:profiles(*),
-        location:locations(*)
+        veterinarian:profiles(id, first_name, last_name),
+        location:locations(id, name),
+        employee:employees(id, first_name, last_name, department)
       `)
       .eq('tenant_id', tenantId)
       .order('scheduled_at', { ascending: false });
@@ -230,7 +238,7 @@ export const appointmentsService = {
     return data;
   },
 
-  async update(id: string, appointmentData: Partial<CreateAppointmentData>): Promise<Appointment> {
+  async update(id: string, appointmentData: Partial<CreateAppointmentData & { status?: string }>): Promise<Appointment> {
     const { data, error } = await supabase
       .from('appointments')
       .update({

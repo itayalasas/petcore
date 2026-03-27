@@ -10,6 +10,9 @@ import Salud from './components/modules/Salud';
 import Servicios from './components/modules/Servicios';
 import Estetica from './components/modules/Estetica';
 import Cuidado from './components/modules/Cuidado';
+import Agenda from './components/modules/Agenda';
+import Remisiones from './components/modules/Remisiones';
+import Empleados from './components/modules/Empleados';
 import Ordenes from './components/modules/Ordenes';
 import Comercio from './components/modules/Comercio';
 import Pagos from './components/modules/Pagos';
@@ -57,6 +60,9 @@ const viewModuleMap: Record<string, string> = {
   estetica: 'estetica',
   cuidado: 'cuidado',
   servicios: 'agenda',
+  agenda: 'agenda',
+  remisiones: 'remisiones',
+  empleados: 'empleados',
   ordenes: 'ordenes',
   comercio: 'comercio',
   pagos: 'pagos',
@@ -101,6 +107,12 @@ function RenderActiveView({ activeView, onFallback }: { activeView: string; onFa
       return <Cuidado />;
     case 'servicios':
       return <Servicios />;
+    case 'agenda':
+      return <Agenda />;
+    case 'remisiones':
+      return <Remisiones />;
+    case 'empleados':
+      return <Empleados />;
     case 'ordenes':
       return <Ordenes />;
     case 'comercio':

@@ -16,7 +16,10 @@ import {
   Sliders,
   Code2,
   Scissors,
-  Sun
+  Sun,
+  Send,
+  UserCog,
+  CalendarDays
 } from 'lucide-react';
 import { useState } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
@@ -46,7 +49,9 @@ const navigation: NavSection[] = [
       { name: 'Consultas', icon: Heart, key: 'salud', module: 'salud', badge: 3 },
       { name: 'Estetica', icon: Scissors, key: 'estetica', module: 'estetica' },
       { name: 'Cuidado', icon: Sun, key: 'cuidado', module: 'cuidado' },
-      { name: 'Agenda', icon: Calendar, key: 'servicios', module: 'agenda' },
+      { name: 'Agenda', icon: CalendarDays, key: 'agenda', module: 'agenda' },
+      { name: 'Citas', icon: Calendar, key: 'servicios', module: 'agenda' },
+      { name: 'Remisiones', icon: Send, key: 'remisiones', module: 'remisiones' },
       { name: 'Ordenes', icon: FileText, key: 'ordenes', module: 'ordenes', badge: 12 },
     ],
   },
@@ -70,6 +75,7 @@ const navigation: NavSection[] = [
   {
     title: 'Plataforma',
     items: [
+      { name: 'Empleados', icon: UserCog, key: 'empleados', module: 'empleados' },
       { name: 'Administración', icon: Settings, key: 'administracion', module: 'administracion' },
       { name: 'Configuración', icon: Sliders, key: 'configuracion', module: 'configuracion' },
       { name: 'API Docs', icon: Code2, key: 'api-docs', module: 'api' },
