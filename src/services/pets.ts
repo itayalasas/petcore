@@ -62,6 +62,29 @@ export interface PetHealth {
   created_at: string;
 }
 
+export interface PetService {
+  id: string;
+  tenant_id: string;
+  pet_id: string;
+  service_id?: string | null;
+  service_name: string;
+  service_type: 'grooming' | 'bathing' | 'nail_trim' | 'haircut' | 'spa' | 'dental' | 'other';
+  performed_by?: string | null;
+  performed_at: string;
+  duration_minutes?: number | null;
+  notes?: string | null;
+  before_photo_url?: string | null;
+  after_photo_url?: string | null;
+  price: number;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  performer?: {
+    id: string;
+    display_name: string;
+  } | null;
+}
+
 export const petsService = {
   async getAllPets(tenantId?: string) {
     let query = supabase
@@ -355,5 +378,81 @@ export const petsService = {
       treatments: treatmentsResult.data || [],
       prescriptions: prescriptionsResult.data || []
     };
+  },
+
+  async getPetServices(petId: string, tenantId?: string) {
+    let query = supabase
+      .from('pet_services')
+      .select(`
+        *,
+        performer:profiles!pet_services_performed_by_fkey (
+          id,
+          display_name
+        )
+      `)
+      .eq('pet_id', petId);
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query.order('performed_at', { ascending: false });
+
+    if (error) throw error;
+    return data as PetService[];
+  },
+
+  async createPetService(service: Partial<PetService>) {
+    const { data, error } = await supabase
+      .from('pet_services')
+      .insert([service])
+      .select(`
+        *,
+        performer:profiles!pet_services_performed_by_fkey (
+          id,
+          display_name
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+    return data as PetService;
+  },
+
+  async updatePetService(id: string, updates: Partial<PetService>, tenantId?: string) {
+    let query = supabase
+      .from('pet_services')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { data, error } = await query.select(`
+      *,
+      performer:profiles!pet_services_performed_by_fkey (
+        id,
+        display_name
+      )
+    `).single();
+
+    if (error) throw error;
+    return data as PetService;
+  },
+
+  async deletePetService(id: string, tenantId?: string) {
+    let query = supabase
+      .from('pet_services')
+      .delete()
+      .eq('id', id);
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    const { error } = await query;
+
+    if (error) throw error;
   }
 };

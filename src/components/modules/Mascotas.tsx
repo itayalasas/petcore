@@ -1,4 +1,4 @@
-import { Plus, PawPrint, Calendar, User, Phone, MapPin, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader, Stethoscope } from 'lucide-react';
+import { Plus, PawPrint, Calendar, User, Phone, MapPin, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader, Stethoscope, Scissors, Sparkles, Bath } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Table from '../ui/Table';
 import Filters from '../ui/Filters';
@@ -8,7 +8,9 @@ import Badge from '../ui/Badge';
 import { FormField, Input, Textarea } from '../ui/FormField';
 import Autocomplete from '../ui/Autocomplete';
 import DeleteConfirmModal from '../ui/DeleteConfirmModal';
-import { petsService, Pet, PetHealth } from '../../services/pets';
+import { petsService, Pet, PetHealth, PetService } from '../../services/pets';
+import { showSuccess, showError } from '../../utils/messages';
+import { supabase } from '../../lib/supabase';
 import { ownersService, Owner } from '../../services/owners';
 import { useTenant } from '../../contexts/TenantContext';
 
@@ -27,6 +29,17 @@ export default function Mascotas() {
   const [selectedConsultationDetail, setSelectedConsultationDetail] = useState<any>(null);
   const [showConsultationDetailModal, setShowConsultationDetailModal] = useState(false);
   const [loadingConsultationDetail, setLoadingConsultationDetail] = useState(false);
+  const [selectedPetServices, setSelectedPetServices] = useState<PetService[]>([]);
+  const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+  const [savingService, setSavingService] = useState(false);
+  const [serviceFormData, setServiceFormData] = useState({
+    service_name: '',
+    service_type: 'grooming' as PetService['service_type'],
+    performed_at: new Date().toISOString().slice(0, 16),
+    duration_minutes: '',
+    notes: '',
+    price: ''
+  });
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
   const [ownerType, setOwnerType] = useState<'existing' | 'new'>('existing');
@@ -62,14 +75,16 @@ export default function Mascotas() {
     if (!currentTenant) return;
 
     try {
-      const [healthRecords, bookings, consultations] = await Promise.all([
+      const [healthRecords, bookings, consultations, petServices] = await Promise.all([
         petsService.getPetHealthRecords(pet.id, currentTenant.id),
         petsService.getBookingsByPet(pet.id, currentTenant.id),
-        petsService.getConsultationsByPet(pet.id, currentTenant.id)
+        petsService.getConsultationsByPet(pet.id, currentTenant.id),
+        petsService.getPetServices(pet.id, currentTenant.id)
       ]);
       setSelectedPetHealth(healthRecords);
       setSelectedPetBookings(bookings);
       setSelectedPetConsultations(consultations || []);
+      setSelectedPetServices(petServices || []);
     } catch (error) {
       console.error('Error loading pet details:', error);
     }
@@ -87,6 +102,76 @@ export default function Mascotas() {
       console.error('Error loading consultation details:', error);
     } finally {
       setLoadingConsultationDetail(false);
+    }
+  };
+
+  const handleAddService = () => {
+    setServiceFormData({
+      service_name: '',
+      service_type: 'grooming',
+      performed_at: new Date().toISOString().slice(0, 16),
+      duration_minutes: '',
+      notes: '',
+      price: ''
+    });
+    setShowAddServiceModal(true);
+  };
+
+  const handleSaveService = async () => {
+    if (!currentTenant || !selectedPet) return;
+
+    try {
+      setSavingService(true);
+      const { data: userData } = await supabase.auth.getUser();
+
+      const newService = await petsService.createPetService({
+        tenant_id: currentTenant.id,
+        pet_id: selectedPet.id,
+        service_name: serviceFormData.service_name,
+        service_type: serviceFormData.service_type,
+        performed_at: new Date(serviceFormData.performed_at).toISOString(),
+        duration_minutes: serviceFormData.duration_minutes ? parseInt(serviceFormData.duration_minutes) : null,
+        notes: serviceFormData.notes || null,
+        price: serviceFormData.price ? parseFloat(serviceFormData.price) : 0,
+        performed_by: userData.user?.id || null,
+        status: 'completed'
+      });
+
+      setSelectedPetServices([newService, ...selectedPetServices]);
+      setShowAddServiceModal(false);
+      showSuccess('Servicio registrado exitosamente');
+    } catch (error: any) {
+      console.error('Error saving service:', error);
+      showError('Error al registrar el servicio: ' + error.message);
+    } finally {
+      setSavingService(false);
+    }
+  };
+
+  const getServiceTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      grooming: 'Peluqueria',
+      bathing: 'Bano',
+      nail_trim: 'Corte de unas',
+      haircut: 'Corte de pelo',
+      spa: 'Spa',
+      dental: 'Limpieza dental',
+      other: 'Otro'
+    };
+    return labels[type] || type;
+  };
+
+  const getServiceTypeIcon = (type: string) => {
+    switch (type) {
+      case 'grooming':
+      case 'haircut':
+        return Scissors;
+      case 'bathing':
+        return Bath;
+      case 'spa':
+        return Sparkles;
+      default:
+        return ShoppingBag;
     }
   };
 
@@ -1031,102 +1116,112 @@ export default function Mascotas() {
               {
                 id: 'services',
                 label: 'Servicios',
-                icon: Calendar,
+                icon: Scissors,
+                badge: selectedPetServices.length,
                 content: (
                   <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
-                        <p className="text-xs text-primary-700 mb-1">Total de servicios</p>
-                        <p className="text-2xl font-bold text-primary-900">{selectedPetBookings.length}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="grid grid-cols-2 gap-4 flex-1">
+                        <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+                              <Scissors className="w-5 h-5 text-pink-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-pink-700">Total servicios</p>
+                              <p className="font-semibold text-pink-900">{selectedPetServices.length}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">Ultimo servicio</p>
+                          <p className="font-semibold text-gray-900">
+                            {selectedPetServices.length > 0
+                              ? new Date(selectedPetServices[0].performed_at).toLocaleDateString('es-ES')
+                              : 'Sin servicios'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">Gasto total</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          ${selectedPetBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0).toFixed(2)}
-                        </p>
-                      </div>
+                      <button
+                        onClick={handleAddService}
+                        className="ml-4 inline-flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-pink-700"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Registrar Servicio
+                      </button>
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Servicios recientes</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de servicios</h3>
                       <div className="space-y-3">
-                        {selectedPetBookings
-                          .filter(b => b.status === 'completed' || b.status === 'delivered')
-                          .slice(0, 5)
-                          .map((booking, index) => {
-                            const icons = [ShoppingBag, Heart, Calendar];
-                            const colors = ['blue', 'green', 'purple'];
-                            const Icon = icons[index % icons.length];
-                            const color = colors[index % colors.length];
-
-                            return (
-                              <div key={booking.id} className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg">
-                                <div className={`w-10 h-10 bg-${color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                  <Icon className={`w-5 h-5 text-${color}-600`} />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <p className="text-sm font-medium text-gray-900">
-                                        {booking.service_name || booking.service?.name || 'Servicio'}
-                                      </p>
-                                      <p className="text-xs text-gray-600 mt-1">
-                                        {new Date(booking.date).toLocaleDateString('es-ES')}
-                                        {booking.time && ` • ${booking.time}`}
-                                      </p>
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        {booking.partner_name || booking.partner?.business_name || 'Proveedor'}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-sm font-semibold text-gray-900">
-                                        ${booking.total_amount?.toFixed(2) || '0.00'}
-                                      </p>
-                                      <Badge variant="success">Completado</Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        {selectedPetBookings.filter(b => b.status === 'completed' || b.status === 'delivered').length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-4">No hay servicios completados</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Próximos servicios</h3>
-                      <div className="space-y-3">
-                        {selectedPetBookings
-                          .filter(b => ['pending', 'confirmed', 'processing'].includes(b.status) && new Date(b.date) >= new Date())
-                          .slice(0, 3)
-                          .map((booking) => (
-                            <div key={booking.id} className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Syringe className="w-5 h-5 text-blue-600" />
+                        {selectedPetServices.map((service) => {
+                          const Icon = getServiceTypeIcon(service.service_type);
+                          return (
+                            <div
+                              key={service.id}
+                              className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:border-pink-200 transition-colors"
+                            >
+                              <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Icon className="w-5 h-5 text-pink-600" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-start justify-between">
                                   <div>
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {booking.service_name || booking.service?.name || 'Servicio'}
-                                    </p>
+                                    <p className="text-sm font-medium text-gray-900">{service.service_name}</p>
                                     <p className="text-xs text-gray-600 mt-1">
-                                      {new Date(booking.date).toLocaleDateString('es-ES')}
-                                      {booking.time && ` • ${booking.time}`}
+                                      {new Date(service.performed_at).toLocaleDateString('es-ES', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      })}
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {booking.partner_name || booking.partner?.business_name || 'Proveedor'}
-                                    </p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <Badge variant="default">{getServiceTypeLabel(service.service_type)}</Badge>
+                                      {service.duration_minutes && (
+                                        <span className="text-xs text-gray-500">{service.duration_minutes} min</span>
+                                      )}
+                                    </div>
+                                    {service.performer && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <User className="w-3 h-3 text-gray-400" />
+                                        <span className="text-xs text-gray-600">
+                                          Realizado por: {service.performer.display_name}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {service.notes && (
+                                      <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
+                                        {service.notes}
+                                      </p>
+                                    )}
                                   </div>
-                                  <Badge variant="info">Programado</Badge>
+                                  <div className="text-right">
+                                    <Badge variant={service.status === 'completed' ? 'success' : 'warning'}>
+                                      {service.status === 'completed' ? 'Completado' : service.status}
+                                    </Badge>
+                                    {service.price > 0 && (
+                                      <p className="text-sm font-semibold text-gray-900 mt-2">
+                                        ${service.price.toFixed(2)}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          ))}
-                        {selectedPetBookings.filter(b => ['pending', 'confirmed', 'processing'].includes(b.status) && new Date(b.date) >= new Date()).length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-4">No hay servicios programados</p>
+                          );
+                        })}
+                        {selectedPetServices.length === 0 && (
+                          <div className="text-center py-8">
+                            <Scissors className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                            <p className="text-sm text-gray-500">No hay servicios registrados</p>
+                            <button
+                              onClick={handleAddService}
+                              className="mt-3 text-sm text-pink-600 hover:text-pink-700 font-medium"
+                            >
+                              Registrar primer servicio
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1204,6 +1299,91 @@ export default function Mascotas() {
             ]}
           />
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showAddServiceModal}
+        onClose={() => setShowAddServiceModal(false)}
+        title="Registrar Servicio"
+      >
+        <div className="space-y-4">
+          <FormField label="Nombre del servicio" required>
+            <Input
+              value={serviceFormData.service_name}
+              onChange={(e) => setServiceFormData({ ...serviceFormData, service_name: e.target.value })}
+              placeholder="Ej: Bano completo, Corte de pelo..."
+            />
+          </FormField>
+
+          <FormField label="Tipo de servicio" required>
+            <select
+              value={serviceFormData.service_type}
+              onChange={(e) => setServiceFormData({ ...serviceFormData, service_type: e.target.value as PetService['service_type'] })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            >
+              <option value="grooming">Peluqueria</option>
+              <option value="bathing">Bano</option>
+              <option value="haircut">Corte de pelo</option>
+              <option value="nail_trim">Corte de unas</option>
+              <option value="spa">Spa</option>
+              <option value="dental">Limpieza dental</option>
+              <option value="other">Otro</option>
+            </select>
+          </FormField>
+
+          <FormField label="Fecha y hora" required>
+            <Input
+              type="datetime-local"
+              value={serviceFormData.performed_at}
+              onChange={(e) => setServiceFormData({ ...serviceFormData, performed_at: e.target.value })}
+            />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Duracion (minutos)">
+              <Input
+                type="number"
+                value={serviceFormData.duration_minutes}
+                onChange={(e) => setServiceFormData({ ...serviceFormData, duration_minutes: e.target.value })}
+                placeholder="60"
+              />
+            </FormField>
+            <FormField label="Precio">
+              <Input
+                type="number"
+                step="0.01"
+                value={serviceFormData.price}
+                onChange={(e) => setServiceFormData({ ...serviceFormData, price: e.target.value })}
+                placeholder="0.00"
+              />
+            </FormField>
+          </div>
+
+          <FormField label="Notas">
+            <Textarea
+              value={serviceFormData.notes}
+              onChange={(e) => setServiceFormData({ ...serviceFormData, notes: e.target.value })}
+              placeholder="Observaciones del servicio..."
+              rows={3}
+            />
+          </FormField>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => setShowAddServiceModal(false)}
+              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveService}
+              disabled={savingService || !serviceFormData.service_name}
+              className="flex-1 px-4 py-2.5 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingService ? 'Guardando...' : 'Guardar Servicio'}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal
