@@ -336,7 +336,7 @@ function WorkspaceShell({
 
   return (
     <TenantGuard onNoTenant={onNoTenant}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_28%),linear-gradient(180deg,_#f8fbfa_0%,_#eef4f2_100%)]">
         <Header
           canAccessPlatform={canAccessPlatform}
           isPlatformMode={false}
@@ -346,10 +346,10 @@ function WorkspaceShell({
 
         <main className="ml-64 mt-16 p-8">
           {pendingBillingCheckout && (
-            <div className="mb-6 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5">
+            <div className="mb-6 rounded-[28px] border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-orange-50 p-5 shadow-[0_24px_60px_-36px_rgba(245,158,11,0.45)]">
               <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-100">
                     <AlertCircle className="w-5 h-5 text-amber-700" />
                   </div>
                   <div>
@@ -368,7 +368,7 @@ function WorkspaceShell({
                     <button
                       type="button"
                       onClick={() => void handleResumeTenantCheckout()}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-300 bg-white text-amber-900 hover:bg-amber-50 transition-colors"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-amber-300 bg-white px-4 py-2 text-amber-900 transition-colors hover:bg-amber-50"
                     >
                       {continuingCheckout ? <Loader className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
                       Continuar pago
@@ -377,7 +377,7 @@ function WorkspaceShell({
                   <button
                     type="button"
                     onClick={() => void handleSyncBillingStatus()}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-slate-700 transition-colors hover:bg-slate-50"
                   >
                     {syncingBillingStatus ? <Loader className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Actualizar estado

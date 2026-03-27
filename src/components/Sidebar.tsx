@@ -1,28 +1,28 @@
 import {
-  Home,
-  PawPrint,
-  Heart,
-  Calendar,
-  ShoppingBag,
-  FileText,
-  CreditCard,
-  Handshake,
-  Users,
-  Truck,
-  Megaphone,
   BarChart3,
-  Settings,
-  ChevronRight,
-  Sliders,
-  Code2,
-  Scissors,
-  Sun,
-  Send,
-  UserCog,
+  Calendar,
   CalendarDays,
-  Package
+  ChevronRight,
+  Code2,
+  CreditCard,
+  FileText,
+  Handshake,
+  Home,
+  Megaphone,
+  Package,
+  PawPrint,
+  Scissors,
+  Send,
+  Settings,
+  ShoppingBag,
+  Sliders,
+  Sun,
+  Truck,
+  UserCog,
+  Users,
+  Heart,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
 import { useTenant } from '../contexts/TenantContext';
 import { notificationsService, NotificationCounts } from '../services/notifications';
@@ -107,6 +107,7 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
 
   const loadCounts = useCallback(async () => {
     if (!currentTenant) return;
+
     try {
       const newCounts = await notificationsService.getCounts(currentTenant.id);
       setCounts(newCounts);
@@ -142,9 +143,27 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
   };
 
   return (
-    <aside className={`fixed left-0 top-16 bottom-0 bg-gray-900 transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'} z-40`}>
-      <div className="h-full flex flex-col">
-        <div className="flex-1 overflow-y-auto py-6 px-3 scrollbar-thin">
+    <aside
+      className={`fixed bottom-0 left-0 top-16 z-40 border-r border-slate-800/70 bg-slate-950 transition-all duration-300 ${
+        collapsed ? 'w-20' : 'w-64'
+      }`}
+    >
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/5 px-4 py-5">
+          <div className={`rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm ${collapsed ? 'text-center' : ''}`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Espacio activo</p>
+            {!collapsed ? (
+              <>
+                <p className="mt-2 truncate text-sm font-bold text-white">{currentTenant?.name || 'Organización'}</p>
+                <p className="mt-1 text-xs text-slate-400">Operación centralizada para mascotas y servicios</p>
+              </>
+            ) : (
+              <div className="mt-2 text-lg font-bold text-white">•</div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-5 scrollbar-thin">
           {navigation.map((section, sectionIdx) => {
             const visibleItems = section.items.filter(hasAccess);
 
@@ -153,50 +172,54 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
             return (
               <div key={section.title} className={sectionIdx > 0 ? 'mt-8' : ''}>
                 {!collapsed && (
-                  <h3 className="px-3 mb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <h3 className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
                     {section.title}
                   </h3>
                 )}
 
-                <nav className="space-y-1">
+                <nav className="space-y-1.5">
                   {visibleItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeView === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => onViewChange(item.key)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all group ${
-                        isActive
-                          ? 'bg-primary-600 text-white'
-                          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
-                        {!collapsed && (
-                          <span className="text-sm font-medium truncate">{item.name}</span>
-                        )}
-                      </div>
+                    const Icon = item.icon;
+                    const isActive = activeView === item.key;
+                    const badgeCount = getBadgeCount(item);
 
-                      {!collapsed && (
-                        <div className="flex items-center gap-2">
-                          {getBadgeCount(item) > 0 && (
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                              isActive
-                                ? 'bg-white text-primary-700'
-                                : 'bg-primary-600 text-white'
-                            }`}>
-                              {getBadgeCount(item)}
-                            </span>
-                          )}
-                          {item.children && (
-                            <ChevronRight className="w-4 h-4 text-gray-500" />
-                          )}
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => onViewChange(item.key)}
+                        className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 transition-all ${
+                          isActive
+                            ? 'bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-lg shadow-emerald-900/30'
+                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={`flex h-9 w-9 items-center justify-center rounded-2xl ${
+                              isActive ? 'bg-white/15' : 'bg-white/5 group-hover:bg-white/10'
+                            }`}
+                          >
+                            <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                          </div>
+                          {!collapsed && <span className="truncate text-sm font-medium">{item.name}</span>}
                         </div>
-                      )}
-                    </button>
-                  );
+
+                        {!collapsed && (
+                          <div className="flex items-center gap-2">
+                            {badgeCount > 0 && (
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                                  isActive ? 'bg-white text-emerald-700' : 'bg-emerald-500/20 text-emerald-300'
+                                }`}
+                              >
+                                {badgeCount}
+                              </span>
+                            )}
+                            {item.children && <ChevronRight className="h-4 w-4 text-slate-500" />}
+                          </div>
+                        )}
+                      </button>
+                    );
                   })}
                 </nav>
               </div>
@@ -204,10 +227,10 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
           })}
         </div>
 
-        <div className="border-t border-gray-800 p-4">
+        <div className="border-t border-white/5 p-4">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="w-full py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             {collapsed ? '→' : '← Contraer'}
           </button>

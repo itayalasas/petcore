@@ -1,5 +1,17 @@
-import { Search, Bell, User, Building2, ChevronDown, HelpCircle, Settings, LogOut, CircleUser as UserCircle, Shield, PawPrint } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import {
+  Bell,
+  Building2,
+  ChevronDown,
+  HelpCircle,
+  LogOut,
+  PawPrint,
+  Search,
+  Settings,
+  Shield,
+  User,
+  UserCircle,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../contexts/TenantContext';
 
@@ -65,14 +77,13 @@ export default function Header({
   }, []);
 
   const loadUserData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (user) {
       setUserEmail(user.email || '');
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
-        .single();
+      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single();
       if (profile) {
         setUserName(profile.display_name || user.email || 'Usuario');
       }
@@ -107,37 +118,40 @@ export default function Header({
   };
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
-      <div className="h-full px-6 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <PawPrint className="w-5 h-5 text-white" />
+    <header className="fixed left-0 right-0 top-0 z-50 h-16 border-b border-white/70 bg-white/80 backdrop-blur-xl">
+      <div className="flex h-full items-center justify-between px-6">
+        <div className="flex min-w-0 items-center gap-6 lg:gap-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-lg shadow-emerald-500/20">
+              <PawPrint className="h-5 w-5 text-white" />
             </div>
-            <span className="font-semibold text-gray-900 text-lg">PetCare</span>
+            <div>
+              <p className="text-base font-bold tracking-tight text-slate-950">PetCare Core</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700/70">Workspace</p>
+            </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="relative hidden lg:block">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar mascotas, clientes, órdenes..."
-              className="w-96 pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-[26rem] rounded-2xl border border-slate-200 bg-slate-50/90 py-2.5 pl-11 pr-4 text-sm text-slate-700 shadow-inner shadow-white focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {canAccessPlatform && onTogglePlatformMode && (
             <button
               onClick={onTogglePlatformMode}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-2xl border px-3.5 py-2 text-sm font-semibold transition-colors ${
                 isPlatformMode
-                  ? 'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <Shield className="w-4 h-4" />
+              <Shield className="h-4 w-4" />
               {isPlatformMode ? 'Volver al tenant' : 'Consola plataforma'}
             </button>
           )}
@@ -146,42 +160,42 @@ export default function Header({
             <div className="relative" ref={tenantMenuRef}>
               <button
                 onClick={() => setShowTenantMenu(!showTenantMenu)}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
-                <Building2 className="w-4 h-4 text-gray-600" />
-                <span className="text-sm text-gray-700">{currentTenant.name}</span>
+                <Building2 className="h-4 w-4 text-slate-500" />
+                <span className="max-w-36 truncate">{currentTenant.name}</span>
                 {tenants.length > 1 && (
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showTenantMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showTenantMenu ? 'rotate-180' : ''}`} />
                 )}
               </button>
 
               {showTenantMenu && tenants.length > 1 && (
-                <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-in fade-in slide-in-from-top-2">
-                  <div className="px-3 py-2 border-b border-gray-100">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cambiar organización</p>
+                <div className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)]">
+                  <div className="border-b border-slate-100 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cambiar organización</p>
                   </div>
-                  {tenants.map((tenant) => (
-                    <button
-                      key={tenant.id}
-                      onClick={() => handleTenantSelect(tenant.id)}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
-                        currentTenant.id === tenant.id ? 'bg-cyan-50' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Building2 className={`w-4 h-4 ${currentTenant.id === tenant.id ? 'text-cyan-600' : 'text-gray-400'}`} />
-                        <div className="flex-1">
-                          <p className={`text-sm font-medium ${currentTenant.id === tenant.id ? 'text-cyan-700' : 'text-gray-900'}`}>
-                            {tenant.name}
-                          </p>
-                          <p className="text-xs text-gray-500">{tenant.slug}</p>
+                  {tenants.map((tenant) => {
+                    const isActive = currentTenant.id === tenant.id;
+
+                    return (
+                      <button
+                        key={tenant.id}
+                        onClick={() => handleTenantSelect(tenant.id)}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${
+                          isActive ? 'bg-emerald-50/70' : ''
+                        }`}
+                      >
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-2xl ${isActive ? 'bg-emerald-100' : 'bg-slate-100'}`}>
+                          <Building2 className={`h-4 w-4 ${isActive ? 'text-emerald-700' : 'text-slate-500'}`} />
                         </div>
-                        {currentTenant.id === tenant.id && (
-                          <div className="w-2 h-2 bg-cyan-600 rounded-full"></div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate text-sm font-semibold ${isActive ? 'text-emerald-800' : 'text-slate-900'}`}>{tenant.name}</p>
+                          <p className="truncate text-xs text-slate-500">{tenant.slug}</p>
+                        </div>
+                        {isActive && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -190,22 +204,22 @@ export default function Header({
           <div className="relative" ref={notificationsRef}>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 hover:bg-gray-50 rounded-lg transition-colors relative"
+              className="relative rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-600 transition-colors hover:bg-slate-50"
             >
-              <Bell className="w-5 h-5 text-gray-600" />
-              {notifications.filter(n => n.unread).length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+              <Bell className="h-5 w-5" />
+              {notifications.filter((notification) => notification.unread).length > 0 && (
+                <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-500" />
               )}
             </button>
 
             {showNotifications && (
-              <div className="absolute top-full right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 animate-in fade-in slide-in-from-top-2">
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="absolute right-0 top-full mt-2 w-96 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)]">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">Notificaciones</p>
-                    <p className="text-xs text-gray-500">{notifications.filter(n => n.unread).length} sin leer</p>
+                    <p className="text-sm font-bold text-slate-950">Notificaciones</p>
+                    <p className="text-xs text-slate-500">{notifications.filter((notification) => notification.unread).length} sin leer</p>
                   </div>
-                  <button className="text-xs text-cyan-600 hover:text-cyan-700 font-medium">
+                  <button className="text-xs font-semibold text-emerald-700 transition-colors hover:text-emerald-800">
                     Marcar todas como leídas
                   </button>
                 </div>
@@ -214,26 +228,24 @@ export default function Header({
                   {notifications.map((notification) => (
                     <button
                       key={notification.id}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 ${
-                        notification.unread ? 'bg-blue-50/50' : ''
+                      className={`w-full border-b border-slate-100 px-5 py-4 text-left transition-colors hover:bg-slate-50 ${
+                        notification.unread ? 'bg-cyan-50/40' : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                          notification.unread ? 'bg-blue-600' : 'bg-transparent'
-                        }`}></div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                          <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        <div className={`mt-2 h-2.5 w-2.5 rounded-full ${notification.unread ? 'bg-cyan-500' : 'bg-slate-200'}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-950">{notification.title}</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">{notification.message}</p>
+                          <p className="mt-1 text-xs text-slate-500">{notification.time}</p>
                         </div>
                       </div>
                     </button>
                   ))}
                 </div>
 
-                <div className="px-4 py-3 border-t border-gray-100 text-center">
-                  <button className="text-sm text-cyan-600 hover:text-cyan-700 font-medium">
+                <div className="px-5 py-4 text-center">
+                  <button className="text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-800">
                     Ver todas las notificaciones
                   </button>
                 </div>
@@ -241,32 +253,32 @@ export default function Header({
             )}
           </div>
 
-          <button className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
-            <HelpCircle className="w-5 h-5 text-gray-600" />
+          <button className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-600 transition-colors hover:bg-slate-50">
+            <HelpCircle className="h-5 w-5" />
           </button>
 
-          <div className="w-px h-8 bg-gray-200"></div>
+          <div className="hidden h-8 w-px bg-slate-200 md:block" />
 
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-lg transition-colors"
+              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 transition-colors hover:bg-slate-50"
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-cyan-100 to-blue-100 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-cyan-700" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-cyan-100">
+                <User className="h-4 w-4 text-emerald-700" />
               </div>
-              <div className="text-left">
-                <p className="text-sm font-medium text-gray-900">{userName}</p>
-                <p className="text-xs text-gray-500">Usuario</p>
+              <div className="hidden text-left sm:block">
+                <p className="max-w-32 truncate text-sm font-semibold text-slate-900">{userName || 'Usuario'}</p>
+                <p className="text-xs text-slate-500">Usuario</p>
               </div>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </button>
 
             {showUserMenu && (
-              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-in fade-in slide-in-from-top-2">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-900">{userName}</p>
-                  <p className="text-xs text-gray-500">{userEmail}</p>
+              <div className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)]">
+                <div className="border-b border-slate-100 px-4 py-4">
+                  <p className="truncate text-sm font-semibold text-slate-950">{userName || 'Usuario'}</p>
+                  <p className="truncate text-xs text-slate-500">{userEmail}</p>
                 </div>
 
                 <div className="py-2">
@@ -274,37 +286,37 @@ export default function Header({
                     onClick={() => {
                       setShowUserMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
                   >
-                    <UserCircle className="w-4 h-4 text-gray-500" />
+                    <UserCircle className="h-4 w-4 text-slate-500" />
                     Mi perfil
                   </button>
                   <button
                     onClick={() => {
                       setShowUserMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
                   >
-                    <Settings className="w-4 h-4 text-gray-500" />
+                    <Settings className="h-4 w-4 text-slate-500" />
                     Configuración
                   </button>
                   <button
                     onClick={() => {
                       setShowUserMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
                   >
-                    <Shield className="w-4 h-4 text-gray-500" />
+                    <Shield className="h-4 w-4 text-slate-500" />
                     Seguridad
                   </button>
                 </div>
 
-                <div className="border-t border-gray-100 pt-2">
+                <div className="border-t border-slate-100 pt-2">
                   <button
                     onClick={handleLogout}
-                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-rose-600 transition-colors hover:bg-rose-50"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="h-4 w-4" />
                     Cerrar sesión
                   </button>
                 </div>
