@@ -1,11 +1,14 @@
 import { supabase } from '../lib/supabase';
 
+export type ServiceType = 'veterinary' | 'grooming' | 'daycare';
+
 export interface Service {
   id: string;
   tenant_id: string;
   name: string;
   description?: string;
   category: string;
+  service_type: ServiceType;
   duration_minutes: number;
   price: number;
   is_active: boolean;

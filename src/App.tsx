@@ -8,6 +8,8 @@ import Mascotas from './components/modules/Mascotas';
 import Duenos from './components/modules/Duenos';
 import Salud from './components/modules/Salud';
 import Servicios from './components/modules/Servicios';
+import Estetica from './components/modules/Estetica';
+import Cuidado from './components/modules/Cuidado';
 import Ordenes from './components/modules/Ordenes';
 import Comercio from './components/modules/Comercio';
 import Pagos from './components/modules/Pagos';
@@ -52,6 +54,8 @@ const viewModuleMap: Record<string, string> = {
   mascotas: 'mascotas',
   duenos: 'duenos',
   salud: 'salud',
+  estetica: 'estetica',
+  cuidado: 'cuidado',
   servicios: 'agenda',
   ordenes: 'ordenes',
   comercio: 'comercio',
@@ -91,6 +95,10 @@ function RenderActiveView({ activeView, onFallback }: { activeView: string; onFa
       return <Duenos />;
     case 'salud':
       return <Salud />;
+    case 'estetica':
+      return <Estetica />;
+    case 'cuidado':
+      return <Cuidado />;
     case 'servicios':
       return <Servicios />;
     case 'ordenes':

@@ -263,8 +263,17 @@ export default function Servicios() {
         await appointmentsService.updateStatus(appointment.id, 'confirmed');
       }
 
+      const serviceType = appointment.service?.service_type || 'veterinary';
+
       window.sessionStorage.setItem(PENDING_CONSULTATION_APPOINTMENT_KEY, appointment.id);
-      window.dispatchEvent(new CustomEvent('app:navigate', { detail: { view: 'salud' } }));
+
+      if (serviceType === 'grooming') {
+        window.dispatchEvent(new CustomEvent('app:navigate', { detail: { view: 'estetica' } }));
+      } else if (serviceType === 'daycare') {
+        window.dispatchEvent(new CustomEvent('app:navigate', { detail: { view: 'cuidado' } }));
+      } else {
+        window.dispatchEvent(new CustomEvent('app:navigate', { detail: { view: 'salud' } }));
+      }
     } catch (error) {
       console.error('Error starting consultation from appointment:', error);
       showError('Error al abrir la cita en consultas');

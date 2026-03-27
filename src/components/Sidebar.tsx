@@ -14,7 +14,9 @@ import {
   Settings,
   ChevronRight,
   Sliders,
-  Code2
+  Code2,
+  Scissors,
+  Sun
 } from 'lucide-react';
 import { useState } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
@@ -35,15 +37,17 @@ interface NavSection {
 
 const navigation: NavSection[] = [
   {
-    title: 'Operación diaria',
+    title: 'Operacion diaria',
     items: [
       { name: 'Inicio', icon: Home, key: 'dashboard', module: 'dashboard' },
       { name: 'Punto de Venta', icon: ShoppingBag, key: 'pos', module: 'pos' },
       { name: 'Mascotas', icon: PawPrint, key: 'mascotas', module: 'mascotas' },
-      { name: 'Dueños', icon: Users, key: 'duenos', module: 'duenos' },
+      { name: 'Duenos', icon: Users, key: 'duenos', module: 'duenos' },
       { name: 'Consultas', icon: Heart, key: 'salud', module: 'salud', badge: 3 },
+      { name: 'Estetica', icon: Scissors, key: 'estetica', module: 'estetica' },
+      { name: 'Cuidado', icon: Sun, key: 'cuidado', module: 'cuidado' },
       { name: 'Agenda', icon: Calendar, key: 'servicios', module: 'agenda' },
-      { name: 'Órdenes', icon: FileText, key: 'ordenes', module: 'ordenes', badge: 12 },
+      { name: 'Ordenes', icon: FileText, key: 'ordenes', module: 'ordenes', badge: 12 },
     ],
   },
   {
