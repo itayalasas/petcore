@@ -148,15 +148,29 @@ export default function Estetica() {
       .from('pet_services')
       .select(`
         *,
-        pet:pets(*),
-        performer:profiles(*)
+        pet:pets(*)
       `)
       .eq('tenant_id', currentTenant.id)
       .in('service_type', ['grooming', 'bathing', 'nail_trim', 'haircut', 'spa'])
       .order('performed_at', { ascending: false });
 
     if (error) throw error;
-    setPetServices(data || []);
+
+    const servicesWithPerformer = await Promise.all(
+      (data || []).map(async (service) => {
+        if (service.performed_by) {
+          const { data: performer } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', service.performed_by)
+            .maybeSingle();
+          return { ...service, performer };
+        }
+        return { ...service, performer: null };
+      })
+    );
+
+    setPetServices(servicesWithPerformer);
   };
 
   const loadPendingAppointments = async () => {
