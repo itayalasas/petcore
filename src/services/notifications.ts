@@ -218,7 +218,7 @@ export const notificationsService = {
   async processBillingItem(
     itemId: string,
     userId: string,
-    orderId?: string
+    _saleId?: string
   ): Promise<void> {
     const { error } = await supabase
       .from('billing_queue')
@@ -226,7 +226,6 @@ export const notificationsService = {
         status: 'processed',
         processed_at: new Date().toISOString(),
         processed_by: userId,
-        order_id: orderId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', itemId);
