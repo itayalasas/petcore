@@ -310,25 +310,46 @@ export default function Inventario() {
   };
 
   const parseImportData = (text: string) => {
-    const lines = text.trim().split('\n').filter(line => line.trim());
     const products: any[] = [];
+    const isSQL = text.includes('INSERT INTO') || text.includes('VALUES');
 
-    for (const line of lines) {
-      const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
-      if (parts.length >= 4) {
+    if (isSQL) {
+      const sqlRowRegex = /\(\s*'[^']*'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([^']*)'\s*,\s*(true|false)\s*\)/gi;
+      let match;
+      while ((match = sqlRowRegex.exec(text)) !== null) {
         products.push({
-          name: parts[0],
-          sku: parts[1] || null,
-          category: parts[2] || 'Otros',
-          brand: parts[3] || null,
-          price: parseFloat(parts[4]) || 0,
-          cost: parseFloat(parts[5]) || 0,
-          stock: parseInt(parts[6]) || 0,
-          min_stock: parseInt(parts[7]) || 5,
-          unit: parts[8] || 'unidad',
-          description: parts[9] || null,
-          image_url: parts[10] || null
+          name: match[1],
+          sku: match[2] || null,
+          category: match[3] || 'Otros',
+          brand: match[4] || null,
+          price: parseFloat(match[5]) || 0,
+          cost: parseFloat(match[6]) || 0,
+          stock: parseInt(match[7]) || 0,
+          min_stock: parseInt(match[8]) || 5,
+          unit: match[9] || 'unidad',
+          description: null,
+          image_url: null
         });
+      }
+    } else {
+      const lines = text.trim().split('\n').filter(line => line.trim());
+      for (const line of lines) {
+        const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
+        if (parts.length >= 4) {
+          products.push({
+            name: parts[0],
+            sku: parts[1] || null,
+            category: parts[2] || 'Otros',
+            brand: parts[3] || null,
+            price: parseFloat(parts[4]) || 0,
+            cost: parseFloat(parts[5]) || 0,
+            stock: parseInt(parts[6]) || 0,
+            min_stock: parseInt(parts[7]) || 5,
+            unit: parts[8] || 'unidad',
+            description: parts[9] || null,
+            image_url: parts[10] || null
+          });
+        }
       }
     }
 
