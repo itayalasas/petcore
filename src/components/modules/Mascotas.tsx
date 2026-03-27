@@ -24,6 +24,9 @@ export default function Mascotas() {
   const [selectedPetHealth, setSelectedPetHealth] = useState<PetHealth[]>([]);
   const [selectedPetBookings, setSelectedPetBookings] = useState<any[]>([]);
   const [selectedPetConsultations, setSelectedPetConsultations] = useState<any[]>([]);
+  const [selectedConsultationDetail, setSelectedConsultationDetail] = useState<any>(null);
+  const [showConsultationDetailModal, setShowConsultationDetailModal] = useState(false);
+  const [loadingConsultationDetail, setLoadingConsultationDetail] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
   const [ownerType, setOwnerType] = useState<'existing' | 'new'>('existing');
@@ -69,6 +72,21 @@ export default function Mascotas() {
       setSelectedPetConsultations(consultations || []);
     } catch (error) {
       console.error('Error loading pet details:', error);
+    }
+  };
+
+  const handleViewConsultationDetail = async (consultationId: string) => {
+    if (!currentTenant) return;
+
+    try {
+      setLoadingConsultationDetail(true);
+      const details = await petsService.getConsultationDetails(consultationId, currentTenant.id);
+      setSelectedConsultationDetail(details);
+      setShowConsultationDetailModal(true);
+    } catch (error) {
+      console.error('Error loading consultation details:', error);
+    } finally {
+      setLoadingConsultationDetail(false);
     }
   };
 
@@ -934,12 +952,13 @@ export default function Mascotas() {
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de consultas</h3>
                       <div className="space-y-3">
                         {selectedPetConsultations.map((consultation) => (
-                          <div
+                          <button
                             key={consultation.id}
-                            className={`p-4 border rounded-lg ${
+                            onClick={() => handleViewConsultationDetail(consultation.id)}
+                            className={`w-full text-left p-4 border rounded-lg transition-all hover:shadow-md ${
                               consultation.status === 'completed'
-                                ? 'bg-white border-gray-200'
-                                : 'bg-amber-50 border-amber-200'
+                                ? 'bg-white border-gray-200 hover:border-teal-300'
+                                : 'bg-amber-50 border-amber-200 hover:border-amber-300'
                             }`}
                           >
                             <div className="flex items-start justify-between">
@@ -971,11 +990,6 @@ export default function Mascotas() {
                                       </span>
                                     </span>
                                   </div>
-                                  {consultation.diagnosis && (
-                                    <p className="text-xs text-gray-500 mt-2">
-                                      <span className="font-medium">Diagnostico:</span> {consultation.diagnosis}
-                                    </p>
-                                  )}
                                   <div className="flex flex-wrap gap-2 mt-2">
                                     {consultation.weight && (
                                       <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
@@ -997,18 +1011,14 @@ export default function Mascotas() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right flex flex-col items-end gap-2">
                                 <Badge variant={consultation.status === 'completed' ? 'success' : 'warning'}>
                                   {consultation.status === 'completed' ? 'Completada' : 'En progreso'}
                                 </Badge>
-                                {consultation.total_amount > 0 && (
-                                  <p className="text-sm font-semibold text-gray-900 mt-2">
-                                    ${consultation.total_amount.toFixed(2)}
-                                  </p>
-                                )}
+                                <span className="text-xs text-teal-600 font-medium">Ver detalles</span>
                               </div>
                             </div>
-                          </div>
+                          </button>
                         ))}
                         {selectedPetConsultations.length === 0 && (
                           <p className="text-sm text-gray-500 text-center py-4">No hay consultas registradas</p>
@@ -1193,6 +1203,215 @@ export default function Mascotas() {
               },
             ]}
           />
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={showConsultationDetailModal}
+        onClose={() => {
+          setShowConsultationDetailModal(false);
+          setSelectedConsultationDetail(null);
+        }}
+        title="Detalle de Consulta Medica"
+        size="lg"
+      >
+        {loadingConsultationDetail ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader className="w-8 h-8 animate-spin text-teal-600" />
+          </div>
+        ) : selectedConsultationDetail?.consultation ? (
+          <div className="space-y-6">
+            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
+                  <Stethoscope className="w-6 h-6 text-teal-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">
+                    {selectedConsultationDetail.consultation.reason || 'Consulta general'}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {new Date(selectedConsultationDetail.consultation.date).toLocaleDateString('es-ES', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <User className="w-4 h-4 text-teal-600" />
+                    <span className="text-sm text-gray-700">
+                      Atendido por: <span className="font-medium">
+                        {selectedConsultationDetail.consultation.veterinarian?.display_name || 'No registrado'}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {(selectedConsultationDetail.consultation.weight ||
+              selectedConsultationDetail.consultation.temperature ||
+              selectedConsultationDetail.consultation.heart_rate) && (
+              <div className="grid grid-cols-3 gap-4">
+                {selectedConsultationDetail.consultation.weight && (
+                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <Scale className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Peso</p>
+                    <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.weight} kg</p>
+                  </div>
+                )}
+                {selectedConsultationDetail.consultation.temperature && (
+                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <AlertCircle className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Temperatura</p>
+                    <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.temperature}°C</p>
+                  </div>
+                )}
+                {selectedConsultationDetail.consultation.heart_rate && (
+                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <Heart className="w-5 h-5 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Frec. Cardiaca</p>
+                    <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.heart_rate} BPM</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedConsultationDetail.consultation.symptoms && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">Sintomas observados</h4>
+                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+                  {selectedConsultationDetail.consultation.symptoms}
+                </p>
+              </div>
+            )}
+
+            {selectedConsultationDetail.diagnoses.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-teal-600" />
+                  Diagnosticos
+                </h4>
+                <div className="space-y-2">
+                  {selectedConsultationDetail.diagnoses.map((diag: any, index: number) => (
+                    <div key={diag.id || index} className="flex items-start gap-3 bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {diag.is_primary && (
+                            <Badge variant="success">Primario</Badge>
+                          )}
+                          <span className="font-medium text-gray-900">{diag.diagnosis_name}</span>
+                        </div>
+                        {diag.notes && (
+                          <p className="text-xs text-gray-600 mt-1">{diag.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedConsultationDetail.treatments.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Syringe className="w-4 h-4 text-teal-600" />
+                  Tratamientos
+                </h4>
+                <div className="space-y-2">
+                  {selectedConsultationDetail.treatments.map((treatment: any, index: number) => (
+                    <div key={treatment.id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="font-medium text-gray-900">{treatment.treatment_name}</p>
+                      {treatment.instructions && (
+                        <p className="text-sm text-gray-600 mt-1">{treatment.instructions}</p>
+                      )}
+                      <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                        {treatment.start_date && (
+                          <span>Inicio: {new Date(treatment.start_date).toLocaleDateString('es-ES')}</span>
+                        )}
+                        {treatment.end_date && (
+                          <span>Fin: {new Date(treatment.end_date).toLocaleDateString('es-ES')}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedConsultationDetail.prescriptions.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Pill className="w-4 h-4 text-teal-600" />
+                  Prescripciones / Recetas
+                </h4>
+                <div className="space-y-2">
+                  {selectedConsultationDetail.prescriptions.map((prescription: any, index: number) => (
+                    <div key={prescription.id || index} className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="font-medium text-gray-900">{prescription.medication_name}</p>
+                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
+                        {prescription.dosage && (
+                          <div>
+                            <span className="text-xs text-gray-500">Dosis:</span>
+                            <p className="font-medium">{prescription.dosage}</p>
+                          </div>
+                        )}
+                        {prescription.frequency && (
+                          <div>
+                            <span className="text-xs text-gray-500">Frecuencia:</span>
+                            <p className="font-medium">{prescription.frequency}</p>
+                          </div>
+                        )}
+                        {prescription.duration_days && (
+                          <div>
+                            <span className="text-xs text-gray-500">Duracion:</span>
+                            <p className="font-medium">{prescription.duration_days} dias</p>
+                          </div>
+                        )}
+                        {prescription.route && (
+                          <div>
+                            <span className="text-xs text-gray-500">Via:</span>
+                            <p className="font-medium capitalize">{prescription.route}</p>
+                          </div>
+                        )}
+                      </div>
+                      {prescription.instructions && (
+                        <p className="text-xs text-gray-600 mt-2 bg-white/50 p-2 rounded">
+                          <span className="font-medium">Indicaciones:</span> {prescription.instructions}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedConsultationDetail.consultation.notes && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">Notas adicionales</h4>
+                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+                  {selectedConsultationDetail.consultation.notes}
+                </p>
+              </div>
+            )}
+
+            {selectedConsultationDetail.diagnoses.length === 0 &&
+             selectedConsultationDetail.treatments.length === 0 &&
+             selectedConsultationDetail.prescriptions.length === 0 &&
+             !selectedConsultationDetail.consultation.symptoms &&
+             !selectedConsultationDetail.consultation.notes && (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                <p>No hay registros medicos adicionales para esta consulta</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <p>No se encontro la informacion de la consulta</p>
+          </div>
         )}
       </Modal>
 

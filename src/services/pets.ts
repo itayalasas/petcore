@@ -290,8 +290,6 @@ export const petsService = {
         heart_rate,
         notes,
         status,
-        total_amount,
-        billed,
         veterinarian:profiles!consultations_veterinarian_id_fkey (
           id,
           display_name
@@ -307,5 +305,55 @@ export const petsService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getConsultationDetails(consultationId: string, tenantId?: string) {
+    const [consultationResult, diagnosesResult, treatmentsResult, prescriptionsResult] = await Promise.all([
+      supabase
+        .from('consultations')
+        .select(`
+          id,
+          date,
+          reason,
+          symptoms,
+          diagnosis,
+          treatment,
+          weight,
+          temperature,
+          heart_rate,
+          notes,
+          status,
+          veterinarian:profiles!consultations_veterinarian_id_fkey (
+            id,
+            display_name
+          )
+        `)
+        .eq('id', consultationId)
+        .maybeSingle(),
+      supabase
+        .from('consultation_diagnoses')
+        .select('*')
+        .eq('consultation_id', consultationId),
+      supabase
+        .from('consultation_treatments')
+        .select('*')
+        .eq('consultation_id', consultationId),
+      supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('consultation_id', consultationId)
+    ]);
+
+    if (consultationResult.error) throw consultationResult.error;
+    if (diagnosesResult.error) throw diagnosesResult.error;
+    if (treatmentsResult.error) throw treatmentsResult.error;
+    if (prescriptionsResult.error) throw prescriptionsResult.error;
+
+    return {
+      consultation: consultationResult.data,
+      diagnoses: diagnosesResult.data || [],
+      treatments: treatmentsResult.data || [],
+      prescriptions: prescriptionsResult.data || []
+    };
   }
 };
