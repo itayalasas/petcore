@@ -15,6 +15,7 @@ import Remisiones from './components/modules/Remisiones';
 import Empleados from './components/modules/Empleados';
 import Ordenes from './components/modules/Ordenes';
 import Comercio from './components/modules/Comercio';
+import Inventario from './components/modules/Inventario';
 import Pagos from './components/modules/Pagos';
 import Aliados from './components/modules/Aliados';
 import Clientes from './components/modules/Clientes';
@@ -64,6 +65,7 @@ const viewModuleMap: Record<string, string> = {
   remisiones: 'remisiones',
   empleados: 'empleados',
   ordenes: 'ordenes',
+  inventario: 'inventario',
   comercio: 'comercio',
   pagos: 'pagos',
   aliados: 'aliados',
@@ -115,6 +117,8 @@ function RenderActiveView({ activeView, onFallback }: { activeView: string; onFa
       return <Empleados />;
     case 'ordenes':
       return <Ordenes />;
+    case 'inventario':
+      return <Inventario />;
     case 'comercio':
       return <Comercio />;
     case 'pagos':

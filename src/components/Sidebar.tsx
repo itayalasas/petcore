@@ -19,7 +19,8 @@ import {
   Sun,
   Send,
   UserCog,
-  CalendarDays
+  CalendarDays,
+  Package
 } from 'lucide-react';
 import { useState } from 'react';
 import { usePermissions } from '../hooks/usePermissions';
@@ -58,6 +59,7 @@ const navigation: NavSection[] = [
   {
     title: 'Negocio',
     items: [
+      { name: 'Inventario', icon: Package, key: 'inventario', module: 'inventario' },
       { name: 'Comercio', icon: ShoppingBag, key: 'comercio', module: 'comercio' },
       { name: 'Pagos y finanzas', icon: CreditCard, key: 'pagos', module: 'pagos' },
       { name: 'Aliados', icon: Handshake, key: 'aliados', module: 'aliados' },
