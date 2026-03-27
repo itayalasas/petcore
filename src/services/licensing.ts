@@ -390,7 +390,7 @@ export async function getCurrentPlatformAdmin(userId?: string | null): Promise<P
         .eq('user_id', resolvedUserId)
         .eq('is_active', true)
         .maybeSingle(),
-      5000,
+      8000,
       'platform_admins lookup'
     );
 
@@ -418,46 +418,17 @@ export async function getCurrentPlatformAdmin(userId?: string | null): Promise<P
   } catch (directLookupError) {
     console.error('[licensing] getCurrentPlatformAdmin:direct-error', directLookupError);
 
-    try {
-      const { data: isPlatformAdmin, error } = await withTimeout(
-        supabase.rpc('is_platform_admin', { p_user_id: resolvedUserId }),
-        6000,
-        'is_platform_admin'
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      if (!isPlatformAdmin) {
-        writeCachedPlatformAdmin(null);
-        return null;
-      }
-
-      const fallbackProfile: PlatformAdminProfile = {
-        user_id: resolvedUserId,
-        email: null,
-        display_name: null,
-        role: 'platform_admin',
-        is_active: true,
-      };
-
-      console.log('[licensing] getCurrentPlatformAdmin:rpc-done', { isPlatformAdmin });
-      writeCachedPlatformAdmin(fallbackProfile);
-      return fallbackProfile;
-    } catch (rpcLookupError) {
-      const cachedProfile = readCachedPlatformAdmin();
-
-      if (cachedProfile) {
-        console.warn('[licensing] getCurrentPlatformAdmin:using-cache-after-error', {
-          userId: resolvedUserId,
-          cachedRole: cachedProfile.role,
-        });
-        return cachedProfile;
-      }
-
-      throw rpcLookupError;
+    const cachedProfile = readCachedPlatformAdmin();
+    if (cachedProfile) {
+      console.warn('[licensing] getCurrentPlatformAdmin:using-cache-after-error', {
+        userId: resolvedUserId,
+        cachedRole: cachedProfile.role,
+      });
+      return cachedProfile;
     }
+
+    console.log('[licensing] getCurrentPlatformAdmin:no-cache-returning-null');
+    return null;
   }
 }
 

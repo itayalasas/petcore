@@ -426,8 +426,8 @@ function AppContent() {
     } catch (platformError) {
       console.error(`${AUTH_DEBUG_PREFIX} loadAuthContext:platform-lookup:error`, platformError);
       setPlatformAdmin(null);
-      setPlatformAccessStatus('error');
-      setPlatformAccessError(platformError instanceof Error ? platformError.message : 'Error desconocido validando acceso a plataforma.');
+      setPlatformAccessStatus('denied');
+      setPlatformAccessError(null);
     }
   };
 
@@ -463,10 +463,9 @@ function AppContent() {
             return;
           }
 
-          authDebug('bootstrap:timeout');
-          setBootstrapError('La autenticación tardó demasiado en responder. Revisa la sesión y vuelve a intentarlo.');
+          authDebug('bootstrap:timeout - continuing without blocking');
           setLoading(false);
-        }, 8000);
+        }, 12000);
 
         authDebug('bootstrap:getSession:start');
         const { data: { session }, error } = await supabase.auth.getSession();
