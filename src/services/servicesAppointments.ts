@@ -42,7 +42,7 @@ export interface AppointmentWithDetails extends Appointment {
   service?: Service;
   veterinarian?: { id: string; first_name: string; last_name: string };
   location?: { id: string; name: string };
-  employee?: { id: string; first_name: string; last_name: string; department: string };
+  assigned_user?: { id: string; first_name: string; last_name: string };
 }
 
 export interface CreateServiceData {
@@ -167,7 +167,7 @@ export const appointmentsService = {
         service:services(*),
         veterinarian:profiles(id, first_name, last_name),
         location:locations(id, name),
-        employee:employees(id, first_name, last_name, department)
+        assigned_user:profiles!appointments_assigned_user_fkey(id, first_name, last_name)
       `)
       .eq('tenant_id', tenantId)
       .order('scheduled_at', { ascending: false });
