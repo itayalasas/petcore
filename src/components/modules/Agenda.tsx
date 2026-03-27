@@ -3,10 +3,10 @@ import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { appointmentsService, AppointmentWithDetails, servicesService, Service } from '../../services/servicesAppointments';
-import { employeesService, EmployeeWithDetails } from '../../services/employees';
 import { referralsService, ReferralWithDetails } from '../../services/cases';
 import { petsService, Pet } from '../../services/pets';
 import { ownersService, Owner } from '../../services/owners';
+import { usersService, TenantUser } from '../../services/users';
 import Modal from '../ui/Modal';
 import Autocomplete from '../ui/Autocomplete';
 
@@ -60,7 +60,7 @@ export default function Agenda() {
   const [groupBy, setGroupBy] = useState<GroupBy>('time');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
-  const [employees, setEmployees] = useState<EmployeeWithDetails[]>([]);
+  const [tenantUsers, setTenantUsers] = useState<TenantUser[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -116,16 +116,16 @@ export default function Agenda() {
     if (!currentTenant) return;
     setLoading(true);
     try {
-      const [appts, emps, srvs, refs, petsData, ownersData] = await Promise.all([
+      const [appts, users, srvs, refs, petsData, ownersData] = await Promise.all([
         appointmentsService.getAll(currentTenant.id),
-        employeesService.getAll(currentTenant.id),
+        usersService.getTenantUsers(currentTenant.id),
         servicesService.getAll(currentTenant.id),
         referralsService.getPending(currentTenant.id),
         petsService.getAllPets(currentTenant.id),
         ownersService.getAll(currentTenant.id),
       ]);
       setAppointments(appts);
-      setEmployees(emps);
+      setTenantUsers(users);
       setServices(srvs);
       setPendingReferrals(refs);
       setPets(petsData);
@@ -189,24 +189,22 @@ export default function Agenda() {
   const getDeptLabel = (value: string) => DEPARTMENTS.find(d => d.value === value)?.label || value;
   const getDeptBadge = (dept: string) => DEPARTMENT_BADGES[dept] || DEPARTMENT_BADGES.general;
 
-  const filteredEmployeesForAssign = employees.filter(e => {
-    if (!e.is_active) return false;
+  const filteredUsersForAssign = tenantUsers.filter(u => {
     if (!employeeSearch) return true;
-    const fullName = `${e.first_name} ${e.last_name}`.toLowerCase();
-    const deptLabel = getDeptLabel(e.department).toLowerCase();
-    return fullName.includes(employeeSearch.toLowerCase()) || deptLabel.includes(employeeSearch.toLowerCase());
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+    const roleName = u.role?.name?.toLowerCase() || '';
+    return fullName.includes(employeeSearch.toLowerCase()) || roleName.includes(employeeSearch.toLowerCase()) || u.email.toLowerCase().includes(employeeSearch.toLowerCase());
   });
 
-  const filteredEmployeesForNew = employees.filter(e => {
-    if (!e.is_active) return false;
+  const filteredUsersForNew = tenantUsers.filter(u => {
     if (!newEmployeeSearch) return true;
-    const fullName = `${e.first_name} ${e.last_name}`.toLowerCase();
-    const deptLabel = getDeptLabel(e.department).toLowerCase();
-    return fullName.includes(newEmployeeSearch.toLowerCase()) || deptLabel.includes(newEmployeeSearch.toLowerCase());
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+    const roleName = u.role?.name?.toLowerCase() || '';
+    return fullName.includes(newEmployeeSearch.toLowerCase()) || roleName.includes(newEmployeeSearch.toLowerCase()) || u.email.toLowerCase().includes(newEmployeeSearch.toLowerCase());
   });
 
-  const selectedEmployeeForAssign = employees.find(e => e.id === assignEmployeeId);
-  const selectedEmployeeForNew = employees.find(e => e.id === newAppointmentData.employee_id);
+  const selectedUserForAssign = tenantUsers.find(u => u.id === assignEmployeeId);
+  const selectedUserForNew = tenantUsers.find(u => u.id === newAppointmentData.employee_id);
 
   const handleAssignEmployee = async () => {
     if (!selectedAppointment) return;
@@ -315,15 +313,15 @@ export default function Agenda() {
     return grouped;
   };
 
-  const renderEmployeeSelector = (
+  const renderUserSelector = (
     value: string,
     search: string,
     setSearch: (s: string) => void,
     showDropdown: boolean,
     setShowDropdown: (s: boolean) => void,
     onChange: (id: string) => void,
-    filteredList: EmployeeWithDetails[],
-    selectedEmp: EmployeeWithDetails | undefined,
+    filteredList: TenantUser[],
+    selectedUser: TenantUser | undefined,
     dropdownRef: React.RefObject<HTMLDivElement>
   ) => {
     return (
@@ -332,17 +330,17 @@ export default function Agenda() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            value={selectedEmp ? `${selectedEmp.first_name} ${selectedEmp.last_name}` : search}
+            value={selectedUser ? `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || selectedUser.email : search}
             onChange={e => {
               setSearch(e.target.value);
               onChange('');
               setShowDropdown(true);
             }}
             onFocus={() => setShowDropdown(true)}
-            placeholder="Buscar empleado por nombre o departamento..."
+            placeholder="Buscar usuario por nombre o rol..."
             className="w-full pl-9 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           />
-          {(selectedEmp || search) && (
+          {(selectedUser || search) && (
             <button
               type="button"
               onClick={() => {
@@ -356,64 +354,63 @@ export default function Agenda() {
           )}
         </div>
 
-        {selectedEmp && (
+        {selectedUser && (
           <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
               <User className="w-5 h-5 text-emerald-600" />
             </div>
             <div className="flex-1">
-              <div className="font-medium text-sm">{selectedEmp.first_name} {selectedEmp.last_name}</div>
+              <div className="font-medium text-sm">
+                {selectedUser.first_name || ''} {selectedUser.last_name || ''}
+              </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded text-xs ${getDeptBadge(selectedEmp.department).bg} ${getDeptBadge(selectedEmp.department).text}`}>
-                  {getDeptLabel(selectedEmp.department)}
-                </span>
-                {selectedEmp.email && <span className="text-xs text-gray-500">{selectedEmp.email}</span>}
+                {selectedUser.role && (
+                  <span className="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                    {selectedUser.role.name}
+                  </span>
+                )}
+                <span className="text-xs text-gray-500">{selectedUser.email}</span>
               </div>
             </div>
           </div>
         )}
 
-        {showDropdown && !selectedEmp && (
+        {showDropdown && !selectedUser && (
           <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
             {filteredList.length === 0 ? (
               <div className="p-3 text-sm text-gray-500 text-center">
-                No se encontraron empleados
+                No se encontraron usuarios
               </div>
             ) : (
-              filteredList.map(emp => {
-                const badge = getDeptBadge(emp.department);
-                return (
-                  <button
-                    key={emp.id}
-                    type="button"
-                    onClick={() => {
-                      onChange(emp.id);
-                      setSearch('');
-                      setShowDropdown(false);
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-3 border-b last:border-b-0"
-                  >
-                    <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-gray-500" />
+              filteredList.map(user => (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(user.id);
+                    setSearch('');
+                    setShowDropdown(false);
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-3 border-b last:border-b-0"
+                >
+                  <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">
+                      {user.first_name || ''} {user.last_name || ''}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {emp.first_name} {emp.last_name}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${badge.bg} ${badge.text}`}>
-                          {getDeptLabel(emp.department)}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {user.role && (
+                        <span className="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                          {user.role.name}
                         </span>
-                        {emp.specializations && emp.specializations.length > 0 && (
-                          <span className="text-xs text-gray-400 truncate">
-                            {emp.specializations.slice(0, 2).join(', ')}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      <span className="text-xs text-gray-400 truncate">{user.email}</span>
                     </div>
-                  </button>
-                );
-              })
+                  </div>
+                </button>
+              ))
             )}
           </div>
         )}
@@ -421,10 +418,16 @@ export default function Agenda() {
     );
   };
 
+  const getPetDisplayName = (pet: Pet | undefined) => {
+    if (!pet) return 'Sin mascota';
+    const ownerName = pet.owner ? `${pet.owner.first_name} ${pet.owner.last_name}` : '';
+    return `${pet.name} - ${pet.species} (${pet.breed})${ownerName ? ` - ${ownerName}` : ''}`;
+  };
+
   const renderAppointmentCard = (appointment: AppointmentWithDetails, compact = false) => {
     const statusClass = STATUS_COLORS[appointment.status] || STATUS_COLORS.pending;
     const time = new Date(appointment.scheduled_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-    const employee = employees.find(e => e.id === appointment.employee_id);
+    const assignedUser = tenantUsers.find(u => u.id === appointment.employee_id);
 
     return (
       <div
@@ -435,15 +438,20 @@ export default function Agenda() {
         <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
         {!compact && (
           <>
+            {appointment.pet?.owner && (
+              <div className="text-xs opacity-75">
+                {appointment.pet.owner.first_name} {appointment.pet.owner.last_name}
+              </div>
+            )}
             <div className="text-xs opacity-75">{appointment.service?.name}</div>
             <div className="flex items-center gap-1 mt-1 text-xs">
               <Clock className="w-3 h-3" />
               {time}
             </div>
-            {employee && (
+            {assignedUser && (
               <div className="flex items-center gap-1 mt-1 text-xs">
                 <User className="w-3 h-3" />
-                {employee.first_name} {employee.last_name}
+                {assignedUser.first_name} {assignedUser.last_name}
               </div>
             )}
           </>
@@ -485,19 +493,21 @@ export default function Agenda() {
     if (groupBy === 'employee') {
       const grouped = getAppointmentsByEmployee();
       return (
-        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(employees.length + 1, 6)}, 1fr)` }}>
-          {employees.filter(e => e.is_active).map(employee => (
-            <div key={employee.id} className="bg-white rounded-lg border p-3">
+        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(tenantUsers.length + 1, 6)}, 1fr)` }}>
+          {tenantUsers.map(user => (
+            <div key={user.id} className="bg-white rounded-lg border p-3">
               <div className="font-medium text-sm mb-3 pb-2 border-b flex items-center gap-2">
                 <User className="w-4 h-4 text-gray-500" />
-                {employee.first_name} {employee.last_name}
-                <span className={`px-1.5 py-0.5 rounded text-xs ${getDeptBadge(employee.department).bg} ${getDeptBadge(employee.department).text}`}>
-                  {getDeptLabel(employee.department)}
-                </span>
+                {user.first_name} {user.last_name}
+                {user.role && (
+                  <span className="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                    {user.role.name}
+                  </span>
+                )}
               </div>
               <div className="space-y-2">
-                {(grouped[employee.id] || []).map(appt => renderAppointmentCard(appt))}
-                {(!grouped[employee.id] || grouped[employee.id].length === 0) && (
+                {(grouped[user.id] || []).map(appt => renderAppointmentCard(appt))}
+                {(!grouped[user.id] || grouped[user.id].length === 0) && (
                   <p className="text-xs text-gray-400 text-center py-4">Sin citas</p>
                 )}
               </div>
@@ -625,7 +635,7 @@ export default function Agenda() {
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Hora</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Mascota</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Servicio</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Empleado</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Asignado</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Estado</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Acciones</th>
           </tr>
@@ -634,7 +644,7 @@ export default function Agenda() {
           {filteredAppointments
             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
             .map(appointment => {
-              const employee = employees.find(e => e.id === appointment.employee_id);
+              const assignedUser = tenantUsers.find(u => u.id === appointment.employee_id);
               const statusClass = STATUS_COLORS[appointment.status];
 
               return (
@@ -644,16 +654,20 @@ export default function Agenda() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-sm">{appointment.pet?.name}</div>
-                    <div className="text-xs text-gray-500">{appointment.owner?.first_name} {appointment.owner?.last_name}</div>
+                    <div className="text-xs text-gray-500">
+                      {appointment.pet?.owner?.first_name} {appointment.pet?.owner?.last_name}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm">{appointment.service?.name}</td>
                   <td className="px-4 py-3">
-                    {employee ? (
+                    {assignedUser ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">{employee.first_name} {employee.last_name}</span>
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${getDeptBadge(employee.department).bg} ${getDeptBadge(employee.department).text}`}>
-                          {getDeptLabel(employee.department)}
-                        </span>
+                        <span className="text-sm">{assignedUser.first_name} {assignedUser.last_name}</span>
+                        {assignedUser.role && (
+                          <span className="px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                            {assignedUser.role.name}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-gray-400 text-sm">Sin asignar</span>
@@ -719,7 +733,7 @@ export default function Agenda() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
-          <p className="text-gray-600">Gestion de citas por empleados y servicios</p>
+          <p className="text-gray-600">Gestion de citas y asignacion de personal</p>
         </div>
         <button
           onClick={() => openNewAppointmentModal(selectedDate, 9)}
@@ -834,9 +848,11 @@ export default function Agenda() {
             onChange={e => setFilterEmployee(e.target.value)}
             className="text-sm border rounded px-2 py-1"
           >
-            <option value="">Todos los empleados</option>
-            {employees.filter(e => e.is_active).map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({getDeptLabel(emp.department)})</option>
+            <option value="">Todos los usuarios</option>
+            {tenantUsers.map(user => (
+              <option key={user.id} value={user.id}>
+                {user.first_name} {user.last_name} {user.role ? `(${user.role.name})` : ''}
+              </option>
             ))}
           </select>
 
@@ -873,7 +889,7 @@ export default function Agenda() {
       <Modal
         isOpen={showAssignModal}
         onClose={() => { setShowAssignModal(false); setSelectedAppointment(null); setEmployeeSearch(''); }}
-        title="Asignar empleado"
+        title="Asignar usuario"
         size="md"
       >
         {selectedAppointment && (
@@ -887,6 +903,11 @@ export default function Agenda() {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900">{selectedAppointment.pet?.name}</div>
+                  {selectedAppointment.pet?.owner && (
+                    <div className="text-sm text-gray-600">
+                      Dueno: {selectedAppointment.pet.owner.first_name} {selectedAppointment.pet.owner.last_name}
+                    </div>
+                  )}
                   <div className="text-sm text-gray-600">{selectedAppointment.service?.name}</div>
                   <div className="text-sm text-gray-500 mt-1">
                     {new Date(selectedAppointment.scheduled_at).toLocaleString('es-MX', {
@@ -903,17 +924,17 @@ export default function Agenda() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Empleado asignado
+                Usuario asignado
               </label>
-              {renderEmployeeSelector(
+              {renderUserSelector(
                 assignEmployeeId,
                 employeeSearch,
                 setEmployeeSearch,
                 showEmployeeDropdown,
                 setShowEmployeeDropdown,
                 setAssignEmployeeId,
-                filteredEmployeesForAssign,
-                selectedEmployeeForAssign,
+                filteredUsersForAssign,
+                selectedUserForAssign,
                 employeeDropdownRef
               )}
             </div>
@@ -975,10 +996,13 @@ export default function Agenda() {
               Mascota *
             </label>
             <Autocomplete
-              options={pets.map(p => ({ value: p.id, label: `${p.name} - ${p.species} (${p.breed})` }))}
+              options={pets.map(p => ({
+                value: p.id,
+                label: getPetDisplayName(p)
+              }))}
               value={newAppointmentData.pet_id}
               onChange={value => setNewAppointmentData({ ...newAppointmentData, pet_id: value })}
-              placeholder="Buscar mascota..."
+              placeholder="Buscar mascota por nombre o dueno..."
             />
           </div>
 
@@ -986,31 +1010,30 @@ export default function Agenda() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Servicio
             </label>
-            <select
+            <Autocomplete
+              options={services.filter(s => s.is_active).map(svc => ({
+                value: svc.id,
+                label: `${svc.name} - $${svc.price}`
+              }))}
               value={newAppointmentData.service_id}
-              onChange={e => setNewAppointmentData({ ...newAppointmentData, service_id: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="">Seleccionar servicio...</option>
-              {services.filter(s => s.is_active).map(svc => (
-                <option key={svc.id} value={svc.id}>{svc.name} - ${svc.price}</option>
-              ))}
-            </select>
+              onChange={value => setNewAppointmentData({ ...newAppointmentData, service_id: value })}
+              placeholder="Buscar servicio..."
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Empleado asignado
+              Usuario asignado
             </label>
-            {renderEmployeeSelector(
+            {renderUserSelector(
               newAppointmentData.employee_id,
               newEmployeeSearch,
               setNewEmployeeSearch,
               showNewEmployeeDropdown,
               setShowNewEmployeeDropdown,
               (id) => setNewAppointmentData({ ...newAppointmentData, employee_id: id }),
-              filteredEmployeesForNew,
-              selectedEmployeeForNew,
+              filteredUsersForNew,
+              selectedUserForNew,
               newEmployeeDropdownRef
             )}
           </div>
