@@ -1,53 +1,138 @@
-import { Plus, Users, Shield, Settings, Bell, Key, Database, Mail, Phone, Calendar, Clock, MapPin, UserCog, Lock, Activity, FileText, Eye, Save, ToggleLeft, ToggleRight, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Users, Shield, Settings, Bell, Key, Database, Calendar, Clock, MapPin, UserCog, Lock, Activity, FileText, Eye, Save, ToggleLeft, ToggleRight, XCircle, Loader, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import Table from '../ui/Table';
 import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';
 import Modal from '../ui/Modal';
 import { FormField, Input, Select, Textarea } from '../ui/FormField';
-import Autocomplete from '../ui/Autocomplete';
 import RolesPermissions from './RolesPermissions';
+import { useTenant } from '../../contexts/TenantContext';
+import { useToast } from '../../contexts/ToastContext';
+import { usersService, type TenantUser, type CreateUserInput } from '../../services/users';
+import { permissionsService, type RoleWithPermissions } from '../../services/permissions';
 
-const mockUsers = [
-  {
-    id: 1,
-    name: 'Juan Pérez',
-    email: 'juan@petcore.com',
-    role: 'Administrador',
-    status: 'Activo',
-    lastLogin: '2024-03-24 10:30',
-  },
-  {
-    id: 2,
-    name: 'María García',
-    email: 'maria@petcore.com',
-    role: 'Veterinario',
-    status: 'Activo',
-    lastLogin: '2024-03-24 09:15',
-  },
-  {
-    id: 3,
-    name: 'Carlos Ruiz',
-    email: 'carlos@petcore.com',
-    role: 'Aliado',
-    status: 'Activo',
-    lastLogin: '2024-03-23 16:45',
-  },
-];
+interface UserFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  roleId: string;
+}
+
+const initialFormData: UserFormData = {
+  email: '',
+  password: '',
+  confirmPassword: '',
+  firstName: '',
+  lastName: '',
+  phone: '',
+  roleId: '',
+};
 
 export default function Administracion() {
-  const [activeSection, setActiveSection] = useState('users');
-  const [showNewUserModal, setShowNewUserModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [userModalTab, setUserModalTab] = useState('general');
+  const { currentTenant } = useTenant();
+  const toast = useToast();
 
-  const roleOptions = [
-    { value: 'admin', label: 'Administrador', subtitle: 'Acceso total al sistema' },
-    { value: 'vet', label: 'Veterinario', subtitle: 'Gestión de salud y consultas' },
-    { value: 'partner', label: 'Aliado', subtitle: 'Gestión de su negocio' },
-    { value: 'driver', label: 'Repartidor', subtitle: 'Entregas y logística' },
-    { value: 'staff', label: 'Personal', subtitle: 'Operaciones básicas' },
-  ];
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [roles, setRoles] = useState<RoleWithPermissions[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showNewUserModal, setShowNewUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<TenantUser | null>(null);
+  const [userModalTab, setUserModalTab] = useState('general');
+  const [formData, setFormData] = useState<UserFormData>(initialFormData);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [stats, setStats] = useState({ total: 0, admins: 0, activeToday: 0 });
+
+  const loadData = useCallback(async () => {
+    if (!currentTenant) return;
+
+    try {
+      setLoading(true);
+      const [usersData, rolesData, statsData] = await Promise.all([
+        usersService.getTenantUsers(currentTenant.id),
+        permissionsService.getRolesByTenant(currentTenant.id),
+        usersService.getUserStats(currentTenant.id),
+      ]);
+      setUsers(usersData);
+      setRoles(rolesData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.showError('Error al cargar los datos');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentTenant, toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleInputChange = (field: keyof UserFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormError(null);
+  };
+
+  const validateForm = (): string | null => {
+    if (!formData.email.trim()) return 'El email es requerido';
+    if (!formData.email.includes('@')) return 'El email no es válido';
+    if (!formData.password) return 'La contraseña es requerida';
+    if (formData.password.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+    if (formData.password !== formData.confirmPassword) return 'Las contraseñas no coinciden';
+    if (!formData.firstName.trim()) return 'El nombre es requerido';
+    if (!formData.roleId) return 'Debe seleccionar un rol';
+    return null;
+  };
+
+  const handleCreateUser = async () => {
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
+    if (!currentTenant) return;
+
+    try {
+      setSubmitting(true);
+      setFormError(null);
+
+      const input: CreateUserInput = {
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone.trim() || undefined,
+        roleId: formData.roleId,
+        tenantId: currentTenant.id,
+      };
+
+      await usersService.createUser(input);
+      toast.showSuccess('Usuario creado exitosamente');
+      setShowNewUserModal(false);
+      setFormData(initialFormData);
+      loadData();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      setFormError(error instanceof Error ? error.message : 'Error al crear el usuario');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCloseNewUserModal = () => {
+    setShowNewUserModal(false);
+    setFormData(initialFormData);
+    setFormError(null);
+  };
+
+  const roleOptions = roles.map(role => ({
+    value: role.id,
+    label: role.name,
+  }));
 
   const locationOptions = [
     { value: 'center', label: 'Sucursal Centro' },
@@ -57,16 +142,18 @@ export default function Administracion() {
 
   const columns = [
     {
-      key: 'name',
+      key: 'display_name',
       label: 'Usuario',
       sortable: true,
-      render: (value: string, row: any) => (
+      render: (_: string, row: TenantUser) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
             <Users className="w-5 h-5 text-primary-600" />
           </div>
           <div>
-            <p className="font-medium text-gray-900">{value}</p>
+            <p className="font-medium text-gray-900">
+              {row.display_name || `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Sin nombre'}
+            </p>
             <p className="text-xs text-gray-500">{row.email}</p>
           </div>
         </div>
@@ -75,21 +162,34 @@ export default function Administracion() {
     {
       key: 'role',
       label: 'Rol',
-      render: (value: string) => {
-        const variants: any = {
+      render: (_: unknown, row: TenantUser) => {
+        const roleName = row.role?.name || 'Sin rol';
+        const variants: Record<string, 'error' | 'info' | 'warning' | 'default' | 'success'> = {
           'Administrador': 'error',
+          'Admin': 'error',
           'Veterinario': 'info',
           'Aliado': 'warning',
           'Cliente': 'default',
         };
-        return <Badge variant={variants[value] || 'default'}>{value}</Badge>;
+        return <Badge variant={variants[roleName] || 'default'}>{roleName}</Badge>;
       },
     },
-    { key: 'lastLogin', label: 'Último acceso' },
+    {
+      key: 'created_at',
+      label: 'Fecha de registro',
+      render: (value: string) => {
+        if (!value) return '-';
+        return new Date(value).toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      },
+    },
     {
       key: 'status',
       label: 'Estado',
-      render: (value: string) => <Badge variant="success">{value}</Badge>,
+      render: () => <Badge variant="success">Activo</Badge>,
     },
   ];
 
@@ -99,6 +199,14 @@ export default function Administracion() {
     { icon: Key, title: 'Seguridad', description: 'Autenticación, contraseñas y accesos' },
     { icon: Database, title: 'Respaldos', description: 'Copias de seguridad y restauración' },
   ];
+
+  if (loading && users.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader className="w-8 h-8 text-primary-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -139,7 +247,7 @@ export default function Administracion() {
                         <Users className="w-5 h-5 text-primary-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">48</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
                       </div>
                     </div>
                     <p className="text-sm text-gray-600">Total usuarios</p>
@@ -151,7 +259,7 @@ export default function Administracion() {
                         <Shield className="w-5 h-5 text-red-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">5</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.admins}</p>
                       </div>
                     </div>
                     <p className="text-sm text-gray-600">Administradores</p>
@@ -163,10 +271,10 @@ export default function Administracion() {
                         <Users className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">23</p>
+                        <p className="text-2xl font-bold text-gray-900">{roles.length}</p>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600">Aliados</p>
+                    <p className="text-sm text-gray-600">Roles</p>
                   </div>
 
                   <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -175,7 +283,7 @@ export default function Administracion() {
                         <Users className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">42</p>
+                        <p className="text-2xl font-bold text-gray-900">{stats.activeToday}</p>
                       </div>
                     </div>
                     <p className="text-sm text-gray-600">Activos hoy</p>
@@ -184,7 +292,7 @@ export default function Administracion() {
 
                 <Table
                   columns={columns}
-                  data={mockUsers}
+                  data={users}
                   onRowClick={(user) => setSelectedUser(user)}
                 />
               </div>
@@ -225,13 +333,13 @@ export default function Administracion() {
                   <h3 className="font-semibold text-gray-900 mb-6">Información del negocio</h3>
                   <div className="grid grid-cols-2 gap-6">
                     <FormField label="Nombre del negocio">
-                      <Input defaultValue="PetCore" />
+                      <Input defaultValue={currentTenant?.name || ''} />
                     </FormField>
                     <FormField label="Email de contacto">
-                      <Input type="email" defaultValue="contacto@petcore.com" />
+                      <Input type="email" placeholder="contacto@ejemplo.com" />
                     </FormField>
                     <FormField label="Teléfono">
-                      <Input type="tel" defaultValue="555-0123" />
+                      <Input type="tel" placeholder="555-0123" />
                     </FormField>
                     <FormField label="Zona horaria">
                       <Select
@@ -260,101 +368,111 @@ export default function Administracion() {
 
       <Modal
         isOpen={showNewUserModal}
-        onClose={() => setShowNewUserModal(false)}
+        onClose={handleCloseNewUserModal}
         title="Nuevo usuario"
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-3">
             <button
-              onClick={() => setShowNewUserModal(false)}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
+              onClick={handleCloseNewUserModal}
+              disabled={submitting}
+              className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium disabled:opacity-50"
             >
               Cancelar
             </button>
-            <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium">
+            <button
+              onClick={handleCreateUser}
+              disabled={submitting}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium disabled:opacity-50 flex items-center gap-2"
+            >
+              {submitting && <Loader className="w-4 h-4 animate-spin" />}
               Crear usuario
             </button>
           </div>
         }
       >
         <div className="space-y-6">
+          {formError && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {formError}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-6">
-            <FormField label="Nombre completo" required>
-              <Input placeholder="Ej: Juan Pérez García" />
+            <FormField label="Nombre" required>
+              <Input
+                placeholder="Juan"
+                value={formData.firstName}
+                onChange={(e) => handleInputChange('firstName', e.target.value)}
+              />
+            </FormField>
+
+            <FormField label="Apellido">
+              <Input
+                placeholder="Pérez"
+                value={formData.lastName}
+                onChange={(e) => handleInputChange('lastName', e.target.value)}
+              />
             </FormField>
 
             <FormField label="Email" required>
-              <Input type="email" placeholder="usuario@petcore.com" />
-            </FormField>
-
-            <FormField label="Rol" required>
-              <Autocomplete
-                options={roleOptions}
-                placeholder="Seleccionar rol..."
+              <Input
+                type="email"
+                placeholder="usuario@ejemplo.com"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
               />
             </FormField>
 
-            <FormField label="Teléfono" required>
-              <Input type="tel" placeholder="555-0123" />
+            <FormField label="Teléfono">
+              <Input
+                type="tel"
+                placeholder="555-0123"
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+              />
             </FormField>
 
-            <FormField label="Contraseña temporal" required>
-              <Input type="password" placeholder="Mínimo 8 caracteres" />
+            <FormField label="Contraseña" required>
+              <Input
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+              />
             </FormField>
 
             <FormField label="Confirmar contraseña" required>
-              <Input type="password" placeholder="Repetir contraseña" />
-            </FormField>
-
-            <FormField label="Sucursal asignada">
-              <Autocomplete
-                options={locationOptions}
-                placeholder="Seleccionar sucursal..."
+              <Input
+                type="password"
+                placeholder="Repetir contraseña"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
               />
             </FormField>
 
-            <FormField label="Fecha de inicio">
-              <Input type="date" />
+            <FormField label="Rol" required>
+              <Select
+                options={roleOptions}
+                value={formData.roleId}
+                onChange={(e) => handleInputChange('roleId', e.target.value)}
+                placeholder="Seleccionar rol..."
+              />
             </FormField>
           </div>
 
-          <div className="pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Permisos de acceso</h3>
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input type="checkbox" className="w-4 h-4 text-primary-600 rounded" defaultChecked />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Ver dashboard</p>
-                  <p className="text-xs text-gray-500">Acceso al panel principal</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3">
-                <input type="checkbox" className="w-4 h-4 text-primary-600 rounded" defaultChecked />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Gestionar mascotas</p>
-                  <p className="text-xs text-gray-500">Crear, editar y ver mascotas</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3">
-                <input type="checkbox" className="w-4 h-4 text-primary-600 rounded" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Acceso a finanzas</p>
-                  <p className="text-xs text-gray-500">Ver reportes financieros</p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3">
-                <input type="checkbox" className="w-4 h-4 text-primary-600 rounded" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Gestionar usuarios</p>
-                  <p className="text-xs text-gray-500">Administrar otros usuarios</p>
-                </div>
-              </label>
+          {roles.length === 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+              <p className="text-sm text-amber-900">
+                <strong>Nota:</strong> No hay roles definidos. Primero debes crear roles en la pestaña "Roles y permisos".
+              </p>
             </div>
-          </div>
+          )}
 
-          <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
-            <p className="text-sm text-amber-900">
-              <strong>Nota:</strong> El usuario recibirá un correo con las instrucciones para activar su cuenta y cambiar su contraseña.
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p className="text-sm text-blue-900">
+              <strong>Nota:</strong> El usuario podrá iniciar sesión inmediatamente con las credenciales proporcionadas.
             </p>
           </div>
         </div>
@@ -366,7 +484,7 @@ export default function Administracion() {
           setSelectedUser(null);
           setUserModalTab('general');
         }}
-        title={selectedUser ? `Gestionar usuario: ${selectedUser.name}` : ''}
+        title={selectedUser ? `Gestionar usuario: ${selectedUser.display_name || selectedUser.email}` : ''}
         size="xl"
       >
         {selectedUser && (
@@ -374,19 +492,26 @@ export default function Administracion() {
             <div className="flex items-start gap-6 pb-6 border-b border-gray-200">
               <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
                 <span className="text-2xl font-bold text-white">
-                  {selectedUser.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                  {(selectedUser.display_name || selectedUser.email)
+                    .split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .substring(0, 2)
+                    .toUpperCase()}
                 </span>
               </div>
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900">{selectedUser.name}</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {selectedUser.display_name || `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || 'Sin nombre'}
+                    </h3>
                     <p className="text-sm text-gray-500 mt-1">{selectedUser.email}</p>
                     <div className="flex items-center gap-3 mt-3">
-                      <Badge variant={selectedUser.role === 'Administrador' ? 'error' : 'info'}>
-                        {selectedUser.role}
+                      <Badge variant={selectedUser.role?.name?.toLowerCase().includes('admin') ? 'error' : 'info'}>
+                        {selectedUser.role?.name || 'Sin rol'}
                       </Badge>
-                      <Badge variant="success">{selectedUser.status}</Badge>
+                      <Badge variant="success">Activo</Badge>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -429,28 +554,26 @@ export default function Administracion() {
             {userModalTab === 'general' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
-                  <FormField label="Nombre completo" required>
-                    <Input defaultValue={selectedUser.name} />
+                  <FormField label="Nombre" required>
+                    <Input defaultValue={selectedUser.first_name || ''} />
+                  </FormField>
+
+                  <FormField label="Apellido">
+                    <Input defaultValue={selectedUser.last_name || ''} />
                   </FormField>
 
                   <FormField label="Email" required>
-                    <Input type="email" defaultValue={selectedUser.email} />
+                    <Input type="email" defaultValue={selectedUser.email} disabled />
                   </FormField>
 
                   <FormField label="Teléfono">
-                    <Input type="tel" placeholder="555-0123" />
+                    <Input type="tel" defaultValue={selectedUser.phone || ''} placeholder="555-0123" />
                   </FormField>
 
                   <FormField label="Rol" required>
                     <Select
-                      options={[
-                        { value: 'admin', label: 'Administrador' },
-                        { value: 'vet', label: 'Veterinario' },
-                        { value: 'partner', label: 'Aliado' },
-                        { value: 'driver', label: 'Repartidor' },
-                        { value: 'staff', label: 'Personal' },
-                      ]}
-                      defaultValue={selectedUser.role === 'Administrador' ? 'admin' : 'vet'}
+                      options={roleOptions}
+                      defaultValue={selectedUser.role_id || ''}
                     />
                   </FormField>
 
@@ -459,26 +582,6 @@ export default function Administracion() {
                       options={locationOptions}
                       placeholder="Seleccionar sucursal..."
                     />
-                  </FormField>
-
-                  <FormField label="Departamento">
-                    <Select
-                      options={[
-                        { value: 'admin', label: 'Administración' },
-                        { value: 'health', label: 'Salud' },
-                        { value: 'logistics', label: 'Logística' },
-                        { value: 'sales', label: 'Ventas' },
-                      ]}
-                      placeholder="Seleccionar departamento..."
-                    />
-                  </FormField>
-
-                  <FormField label="Fecha de ingreso">
-                    <Input type="date" defaultValue="2024-01-15" />
-                  </FormField>
-
-                  <FormField label="Horario de trabajo">
-                    <Input placeholder="Ej: Lun-Vie 9:00-18:00" />
                   </FormField>
                 </div>
 
@@ -498,8 +601,13 @@ export default function Administracion() {
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
                   <Activity className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-900">
-                    <p className="font-medium">Último acceso: {selectedUser.lastLogin}</p>
-                    <p className="text-blue-700 mt-1">Sesión activa desde hace 2 horas</p>
+                    <p className="font-medium">
+                      Fecha de registro: {new Date(selectedUser.created_at).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -509,7 +617,7 @@ export default function Administracion() {
               <div className="space-y-6">
                 <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
                   <p className="text-sm text-amber-900">
-                    <strong>Rol actual:</strong> {selectedUser.role} - Los permisos se configuran según el rol asignado
+                    <strong>Rol actual:</strong> {selectedUser.role?.name || 'Sin rol'} - Los permisos se configuran según el rol asignado
                   </p>
                 </div>
 
@@ -535,28 +643,11 @@ export default function Administracion() {
                         ],
                       },
                       {
-                        category: 'Servicios y órdenes',
-                        permissions: [
-                          { id: 'view_orders', label: 'Ver órdenes', enabled: true },
-                          { id: 'create_orders', label: 'Crear órdenes', enabled: true },
-                          { id: 'modify_prices', label: 'Modificar precios', enabled: false },
-                          { id: 'cancel_orders', label: 'Cancelar órdenes', enabled: false },
-                        ],
-                      },
-                      {
-                        category: 'Finanzas y pagos',
-                        permissions: [
-                          { id: 'view_payments', label: 'Ver pagos', enabled: true },
-                          { id: 'process_refunds', label: 'Procesar reembolsos', enabled: false },
-                          { id: 'view_financial_reports', label: 'Ver reportes financieros', enabled: false },
-                        ],
-                      },
-                      {
                         category: 'Administración',
                         permissions: [
-                          { id: 'manage_users', label: 'Gestionar usuarios', enabled: selectedUser.role === 'Administrador' },
-                          { id: 'manage_roles', label: 'Gestionar roles y permisos', enabled: selectedUser.role === 'Administrador' },
-                          { id: 'system_settings', label: 'Configuración del sistema', enabled: selectedUser.role === 'Administrador' },
+                          { id: 'manage_users', label: 'Gestionar usuarios', enabled: selectedUser.role?.name?.toLowerCase().includes('admin') },
+                          { id: 'manage_roles', label: 'Gestionar roles y permisos', enabled: selectedUser.role?.name?.toLowerCase().includes('admin') },
+                          { id: 'system_settings', label: 'Configuración del sistema', enabled: selectedUser.role?.name?.toLowerCase().includes('admin') },
                         ],
                       },
                     ].map((group) => (
@@ -592,7 +683,7 @@ export default function Administracion() {
                         <Activity className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">234</p>
+                        <p className="text-2xl font-bold text-gray-900">-</p>
                         <p className="text-xs text-gray-500">Acciones totales</p>
                       </div>
                     </div>
@@ -604,7 +695,7 @@ export default function Administracion() {
                         <Clock className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">42h</p>
+                        <p className="text-2xl font-bold text-gray-900">-</p>
                         <p className="text-xs text-gray-500">Tiempo activo</p>
                       </div>
                     </div>
@@ -616,7 +707,7 @@ export default function Administracion() {
                         <Calendar className="w-5 h-5 text-primary-600" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">15</p>
+                        <p className="text-2xl font-bold text-gray-900">-</p>
                         <p className="text-xs text-gray-500">Días activo</p>
                       </div>
                     </div>
@@ -625,63 +716,9 @@ export default function Administracion() {
 
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-4">Actividad reciente</h4>
-                  <div className="space-y-3">
-                    {[
-                      { action: 'Inició sesión', time: 'Hace 2 horas', icon: Key, color: 'green' },
-                      { action: 'Actualizó perfil de mascota #1234', time: 'Hace 3 horas', icon: FileText, color: 'blue' },
-                      { action: 'Creó nueva orden #5678', time: 'Hace 5 horas', icon: Plus, color: 'primary' },
-                      { action: 'Procesó pago de $450', time: 'Ayer a las 16:30', icon: Activity, color: 'green' },
-                      { action: 'Modificó configuración de usuario', time: 'Ayer a las 14:20', icon: Settings, color: 'gray' },
-                      { action: 'Exportó reporte mensual', time: '2 días atrás', icon: FileText, color: 'blue' },
-                    ].map((item, index) => {
-                      const Icon = item.icon;
-                      return (
-                        <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                          <div className={`w-8 h-8 bg-${item.color}-100 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                            <Icon className={`w-4 h-4 text-${item.color}-600`} />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">{item.action}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{item.time}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-4">Historial de sesiones</h4>
-                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
-                    {[
-                      { device: 'Chrome en Windows', location: 'Ciudad de México, MX', ip: '192.168.1.100', time: selectedUser.lastLogin },
-                      { device: 'Safari en iPhone', location: 'Ciudad de México, MX', ip: '192.168.1.101', time: '2024-03-23 08:15' },
-                      { device: 'Chrome en Windows', location: 'Ciudad de México, MX', ip: '192.168.1.100', time: '2024-03-22 14:30' },
-                    ].map((session, index) => (
-                      <div key={index} className="p-4 flex items-center justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Activity className="w-5 h-5 text-gray-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{session.device}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {session.location}
-                              </p>
-                              <p className="text-xs text-gray-500">IP: {session.ip}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-900">{session.time}</p>
-                          {index === 0 && (
-                            <Badge variant="success" className="mt-1">Activa</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="text-center py-8 text-gray-500">
+                    <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>El registro de actividad estará disponible próximamente</p>
                   </div>
                 </div>
               </div>
@@ -704,32 +741,6 @@ export default function Administracion() {
                       </div>
                       <ToggleRight className="w-10 h-5 text-green-600 cursor-pointer" />
                     </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Mail className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Email verificado</p>
-                          <p className="text-xs text-gray-500">Confirmado el 15 de enero, 2024</p>
-                        </div>
-                      </div>
-                      <Badge variant="success">Verificado</Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                          <Bell className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Notificaciones</p>
-                          <p className="text-xs text-gray-500">Recibe notificaciones por email</p>
-                        </div>
-                      </div>
-                      <ToggleRight className="w-10 h-5 text-green-600 cursor-pointer" />
-                    </div>
                   </div>
                 </div>
 
@@ -746,7 +757,7 @@ export default function Administracion() {
                           <p className="text-xs text-gray-500">Enviar enlace de recuperación al usuario</p>
                         </div>
                       </div>
-                      <span className="text-sm text-primary-600 font-medium">Enviar →</span>
+                      <span className="text-sm text-primary-600 font-medium">Enviar</span>
                     </button>
 
                     <button className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-primary-300 transition-colors">
@@ -759,20 +770,20 @@ export default function Administracion() {
                           <p className="text-xs text-gray-500">Forzar cierre de sesión en todos los dispositivos</p>
                         </div>
                       </div>
-                      <span className="text-sm text-primary-600 font-medium">Cerrar →</span>
+                      <span className="text-sm text-primary-600 font-medium">Cerrar</span>
                     </button>
 
                     <button className="w-full flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-primary-300 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <Eye className="w-5 h-5 text-purple-600" />
+                        <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
+                          <Eye className="w-5 h-5 text-cyan-600" />
                         </div>
                         <div className="text-left">
                           <p className="text-sm font-medium text-gray-900">Ver registro de auditoría</p>
                           <p className="text-xs text-gray-500">Historial completo de acciones</p>
                         </div>
                       </div>
-                      <span className="text-sm text-primary-600 font-medium">Ver →</span>
+                      <span className="text-sm text-primary-600 font-medium">Ver</span>
                     </button>
                   </div>
                 </div>
