@@ -1,5 +1,5 @@
 import { ShoppingCart, Search, Receipt, Package, Briefcase, FileText, Stethoscope, Scissors, Sun, Plus, Minus, X, Clock, User, PawPrint, CreditCard, Banknote, Building2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -106,6 +106,19 @@ export default function POS() {
   const [linkedSources, setLinkedSources] = useState<{ type: string; id: string }[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedPetGroup, setSelectedPetGroup] = useState<string | null>(null);
+  const [petSearchTerm, setPetSearchTerm] = useState('');
+  const [showPetDropdown, setShowPetDropdown] = useState(false);
+  const petSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (petSearchRef.current && !petSearchRef.current.contains(event.target as Node)) {
+        setShowPetDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (currentTenant) {
@@ -849,20 +862,88 @@ export default function POS() {
 
             <div className="p-4">
               {!selectedPetGroup && (
-                <div className="mb-4">
+                <div className="mb-4" ref={petSearchRef}>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Mascota</label>
-                  <select
-                    value={selectedPet}
-                    onChange={(e) => setSelectedPet(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="">Seleccionar mascota...</option>
-                    {pets.map(pet => (
-                      <option key={pet.id} value={pet.id}>
-                        {pet.name} ({pet.species}) - {pet.owner_name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por mascota o dueno..."
+                      value={petSearchTerm}
+                      onChange={(e) => {
+                        setPetSearchTerm(e.target.value);
+                        setShowPetDropdown(true);
+                      }}
+                      onFocus={() => setShowPetDropdown(true)}
+                      className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                    {showPetDropdown && (
+                      <div className="absolute z-20 w-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-60 overflow-y-auto">
+                        {pets
+                          .filter(pet =>
+                            pet.name.toLowerCase().includes(petSearchTerm.toLowerCase()) ||
+                            pet.owner_name.toLowerCase().includes(petSearchTerm.toLowerCase())
+                          )
+                          .slice(0, 10)
+                          .map(pet => (
+                            <button
+                              key={pet.id}
+                              onClick={() => {
+                                setSelectedPet(pet.id);
+                                setPetSearchTerm('');
+                                setShowPetDropdown(false);
+                              }}
+                              className={`w-full px-3 py-2.5 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 ${
+                                selectedPet === pet.id ? 'bg-emerald-50' : ''
+                              }`}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <PawPrint className="w-4 h-4 text-gray-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 text-sm">{pet.name}</div>
+                                <div className="text-xs text-gray-500 flex items-center gap-1">
+                                  <span className="text-gray-400">{pet.species}</span>
+                                  <span className="text-gray-300">|</span>
+                                  <User className="w-3 h-3" />
+                                  {pet.owner_name}
+                                </div>
+                              </div>
+                              {selectedPet === pet.id && (
+                                <span className="text-emerald-600 text-xs font-medium">Seleccionado</span>
+                              )}
+                            </button>
+                          ))}
+                        {pets.filter(pet =>
+                          pet.name.toLowerCase().includes(petSearchTerm.toLowerCase()) ||
+                          pet.owner_name.toLowerCase().includes(petSearchTerm.toLowerCase())
+                        ).length === 0 && (
+                          <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                            No se encontraron mascotas
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedPet && !selectedPetGroup && (
+                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PawPrint className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium text-emerald-800">
+                          {pets.find(p => p.id === selectedPet)?.name}
+                        </span>
+                        <span className="text-xs text-emerald-600">
+                          - {pets.find(p => p.id === selectedPet)?.owner_name}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedPet('')}
+                        className="p-1 text-emerald-600 hover:bg-emerald-100 rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
