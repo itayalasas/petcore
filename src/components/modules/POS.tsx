@@ -519,9 +519,9 @@ export default function POS() {
       const saleItems = cart.map(item => ({
         tenant_id: currentTenant!.id,
         sale_id: saleData.id,
-        item_type: item.type,
-        product_id: item.type === 'product' ? item.id : null,
-        service_id: item.type === 'service' ? item.id : null,
+        item_type: item.source_type || item.type,
+        product_id: item.type === 'product' && !item.source_id ? item.id : null,
+        service_id: item.type === 'service' && !item.source_id ? item.id : null,
         description: item.name,
         quantity: item.quantity,
         unit_price: item.unit_price,
