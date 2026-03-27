@@ -314,17 +314,17 @@ export default function Inventario() {
     const products: any[] = [];
 
     for (const line of lines) {
-      const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+      const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, '').replace(/^'|'$/g, ''));
       if (parts.length >= 4) {
         products.push({
           name: parts[0],
           sku: parts[1] || null,
           category: parts[2] || 'Otros',
-          price: parseFloat(parts[3]) || 0,
-          cost: parseFloat(parts[4]) || 0,
-          stock: parseInt(parts[5]) || 0,
-          min_stock: parseInt(parts[6]) || 5,
-          brand: parts[7] || null,
+          brand: parts[3] || null,
+          price: parseFloat(parts[4]) || 0,
+          cost: parseFloat(parts[5]) || 0,
+          stock: parseInt(parts[6]) || 0,
+          min_stock: parseInt(parts[7]) || 5,
           unit: parts[8] || 'unidad',
           description: parts[9] || null,
           image_url: parts[10] || null
@@ -422,16 +422,16 @@ VALUES
 
   const exportInventory = () => {
     const csv = [
-      ['Nombre', 'SKU', 'Categoria', 'Precio', 'Costo', 'Stock', 'Stock Min', 'Marca', 'Unidad', 'Descripcion', 'Imagen URL'].join(','),
+      ['Nombre', 'SKU', 'Categoria', 'Marca', 'Precio', 'Costo', 'Stock', 'Stock Min', 'Unidad', 'Descripcion', 'Imagen URL'].join(','),
       ...filteredProducts.map(p => [
         `"${p.name}"`,
         p.sku || '',
         p.category,
+        p.brand || '',
         p.price,
         p.cost || 0,
         p.stock,
         p.min_stock || 5,
-        p.brand || '',
         p.unit || 'unidad',
         `"${p.description || ''}"`,
         p.image_url || ''
@@ -1081,7 +1081,7 @@ VALUES
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">Formato CSV esperado:</h4>
             <p className="text-sm text-blue-800 font-mono">
-              Nombre, SKU, Categoria, Precio, Costo, Stock, Stock Min, Marca, Unidad, Descripcion, Imagen URL
+              Nombre, SKU, Categoria, Marca, Precio, Costo, Stock, Stock Min, Unidad, Descripcion, Imagen URL
             </p>
           </div>
 
@@ -1089,8 +1089,8 @@ VALUES
             <Textarea
               value={importData}
               onChange={(e) => setImportData(e.target.value)}
-              placeholder={`Alimento Premium 15kg, ALM-001, Alimentos, 450, 320, 25, 5, Royal Canin, unidad, Alimento premium para perros adultos, https://ejemplo.com/imagen.jpg
-Collar Antipulgas, ACC-001, Accesorios, 120, 85, 40, 10, Frontline, unidad, , `}
+              placeholder={`Alimento Premium 15kg, ALM-001, Alimentos, Royal Canin, 450, 320, 25, 5, unidad, Alimento premium para perros adultos, https://ejemplo.com/imagen.jpg
+Collar Antipulgas, ACC-001, Accesorios, Frontline, 120, 85, 40, 10, unidad, , `}
               rows={6}
             />
           </FormField>
