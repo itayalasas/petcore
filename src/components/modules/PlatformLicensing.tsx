@@ -6,7 +6,6 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
-  Loader,
   Plus,
   RefreshCw,
   Search,
@@ -16,6 +15,7 @@ import {
   ToggleRight
 } from 'lucide-react';
 import Modal from '../ui/Modal';
+import LoadingSpinner from '../ui/LoadingSpinner';
 import {
   clearPlatformTenantModuleEntitlement,
   createSubscriptionPlan,
@@ -554,14 +554,7 @@ export default function PlatformLicensing() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-10 h-10 text-cyan-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Cargando consola de plataforma...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando consola de plataforma..." />;
   }
 
   return (

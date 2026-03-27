@@ -7,6 +7,7 @@ import Badge from '../ui/Badge';
 import { FormField, Input, Textarea } from '../ui/FormField';
 import Autocomplete from '../ui/Autocomplete';
 import DeleteConfirmModal from '../ui/DeleteConfirmModal';
+import LoadingSpinner from '../ui/LoadingSpinner';
 import { useTenant } from '../../contexts/TenantContext';
 import { servicesService, appointmentsService, Service, AppointmentWithDetails } from '../../services/servicesAppointments';
 import { petsService, Pet } from '../../services/pets';
@@ -427,14 +428,7 @@ export default function Servicios() {
   };
 
   if (tenantLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando agenda...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando servicios..." />;
   }
 
   const categoryStats = getStatsByCategory();

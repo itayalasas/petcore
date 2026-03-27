@@ -1,4 +1,4 @@
-import { Plus, Users, Shield, Settings, Bell, Key, Database, Calendar, Clock, MapPin, UserCog, Lock, Activity, FileText, Eye, Save, ToggleLeft, ToggleRight, XCircle, Loader, AlertCircle } from 'lucide-react';
+import { Plus, Users, Shield, Settings, Bell, Key, Database, Calendar, Clock, MapPin, UserCog, Lock, Activity, FileText, Eye, Save, ToggleLeft, ToggleRight, XCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import Table from '../ui/Table';
 import Badge from '../ui/Badge';
@@ -6,6 +6,7 @@ import Tabs from '../ui/Tabs';
 import Modal from '../ui/Modal';
 import { FormField, Input, Select, Textarea } from '../ui/FormField';
 import RolesPermissions from './RolesPermissions';
+import LoadingSpinner from '../ui/LoadingSpinner';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { usersService, type TenantUser, type CreateUserInput } from '../../services/users';
@@ -201,11 +202,7 @@ export default function Administracion() {
   ];
 
   if (loading && users.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader className="w-8 h-8 text-primary-600 animate-spin" />
-      </div>
-    );
+    return <LoadingSpinner message="Cargando administracion..." />;
   }
 
   return (

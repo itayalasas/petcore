@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
+import LoadingSpinner from '../ui/LoadingSpinner';
 import { FormField, Input, Textarea, Select } from '../ui/FormField';
 import { useTenant } from '../../contexts/TenantContext';
 import { petsService, Pet } from '../../services/pets';
@@ -423,11 +424,7 @@ export default function Estetica() {
   ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando estetica..." />;
   }
 
   return (

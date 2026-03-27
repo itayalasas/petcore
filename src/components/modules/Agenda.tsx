@@ -10,6 +10,7 @@ import { usersService, TenantUser } from '../../services/users';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
 import Autocomplete from '../ui/Autocomplete';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 type ViewMode = 'day' | 'week' | 'list';
 type GroupBy = 'time' | 'employee' | 'service' | 'department';
@@ -779,11 +780,7 @@ export default function Agenda() {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando agenda..." />;
   }
 
   return (

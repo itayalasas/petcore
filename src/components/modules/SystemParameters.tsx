@@ -5,6 +5,7 @@ import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
 import { FormField, Input, Textarea } from '../ui/FormField';
 import DeleteConfirmModal from '../ui/DeleteConfirmModal';
+import LoadingSpinner from '../ui/LoadingSpinner';
 import { showSuccess, showError } from '../../utils/messages';
 import {
   getSystemParameters,
@@ -220,11 +221,7 @@ export default function SystemParameters() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando parametros..." />;
   }
 
   return (

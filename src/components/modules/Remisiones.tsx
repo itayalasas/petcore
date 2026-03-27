@@ -7,6 +7,7 @@ import { employeesService, EmployeeWithDetails } from '../../services/employees'
 import { petsService, Pet } from '../../services/pets';
 import Modal from '../ui/Modal';
 import Autocomplete from '../ui/Autocomplete';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const DEPARTMENTS = [
   { value: 'veterinary', label: 'Veterinaria', icon: '🏥' },
@@ -187,11 +188,7 @@ export default function Remisiones() {
   const getDeptLabel = (value: string) => DEPARTMENTS.find(d => d.value === value)?.label || value;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando remisiones..." />;
   }
 
   return (

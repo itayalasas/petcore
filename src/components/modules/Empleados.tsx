@@ -6,6 +6,7 @@ import { employeesService, Employee, EmployeeWithDetails, EmployeeSchedule } fro
 import { servicesService, Service } from '../../services/servicesAppointments';
 import Modal from '../ui/Modal';
 import DeleteConfirmModal from '../ui/DeleteConfirmModal';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const DEPARTMENTS = [
   { value: 'general', label: 'General' },
@@ -242,11 +243,7 @@ export default function Empleados() {
   const getDeptLabel = (value: string) => DEPARTMENTS.find(d => d.value === value)?.label || value;
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando empleados..." />;
   }
 
   return (
