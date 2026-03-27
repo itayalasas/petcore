@@ -1,9 +1,8 @@
-import { ShoppingCart, Trash2, Search, Receipt, Package, Briefcase, FileText, Stethoscope, Scissors, Sun, FlaskConical, Plus, Minus, X, Clock, User, PawPrint, CreditCard, Banknote, Building2, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Search, Receipt, Package, Briefcase, FileText, Stethoscope, Scissors, Sun, Plus, Minus, X, Clock, User, PawPrint, CreditCard, Banknote, Building2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
-import Modal from '../ui/Modal';
 
 interface Product {
   id: string;
@@ -46,11 +45,22 @@ interface PendingCharge {
   pet_id: string;
   pet_name: string;
   owner_name: string;
+  owner_id: string;
   description: string;
   amount: number;
   date: string;
   status: string;
   items?: CartItem[];
+}
+
+interface PetGroup {
+  pet_id: string;
+  pet_name: string;
+  owner_id: string;
+  owner_name: string;
+  species: string;
+  charges: PendingCharge[];
+  total_amount: number;
 }
 
 interface OwnerSummary {
@@ -93,8 +103,9 @@ export default function POS() {
   const [loading, setLoading] = useState(false);
   const [pendingCharges, setPendingCharges] = useState<PendingCharge[]>([]);
   const [pendingSearchTerm, setPendingSearchTerm] = useState('');
-  const [showPendingModal, setShowPendingModal] = useState(false);
   const [linkedSources, setLinkedSources] = useState<{ type: string; id: string }[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [selectedPetGroup, setSelectedPetGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentTenant) {
@@ -128,7 +139,7 @@ export default function POS() {
           billable_items,
           total_amount,
           billed,
-          pet:pets(id, name, owner:owners!owner_id(first_name, last_name))
+          pet:pets(id, name, owner_id, owner:owners!owner_id(first_name, last_name))
         `)
         .eq('id', consultationId)
         .single();
@@ -140,30 +151,12 @@ export default function POS() {
         return;
       }
 
-      setSelectedPet(data.pet_id);
-      const items: CartItem[] = (data.billable_items || []).map((item: any) => ({
-        ...item,
-        discount: 0,
-        source_id: consultationId,
-        source_type: 'consultation'
-      }));
+      await loadPendingCharges();
 
-      if (items.length === 0) {
-        items.push({
-          type: 'consultation',
-          id: consultationId,
-          name: `Consulta: ${data.reason || 'Sin motivo'}`,
-          quantity: 1,
-          unit_price: data.total_amount || 0,
-          discount: 0,
-          source_id: consultationId,
-          source_type: 'consultation'
-        });
-      }
-
-      setCart(items);
-      setLinkedSources([{ type: 'consultation', id: consultationId }]);
-      showSuccess('Consulta cargada al carrito');
+      const petId = data.pet_id;
+      setTimeout(() => {
+        selectPetGroup(petId);
+      }, 100);
 
     } catch (error) {
       console.error('Error loading consultation:', error);
@@ -180,7 +173,7 @@ export default function POS() {
           .from('consultations')
           .select(`
             id, date, reason, total_amount, status, billed,
-            pet:pets(id, name, species, owner:owners!owner_id(first_name, last_name)),
+            pet:pets(id, name, species, owner_id, owner:owners!owner_id(first_name, last_name)),
             billable_items
           `)
           .eq('tenant_id', currentTenant.id)
@@ -192,7 +185,7 @@ export default function POS() {
           .from('pet_services')
           .select(`
             id, performed_at, service_name, price, status,
-            pet:pets(id, name, species, owner:owners!owner_id(first_name, last_name))
+            pet:pets(id, name, species, owner_id, owner:owners!owner_id(first_name, last_name))
           `)
           .eq('tenant_id', currentTenant.id)
           .in('service_type', ['grooming', 'bathing', 'nail_trim', 'haircut', 'spa'])
@@ -203,7 +196,7 @@ export default function POS() {
           .from('pet_services')
           .select(`
             id, performed_at, service_name, price, status,
-            pet:pets(id, name, species, owner:owners!owner_id(first_name, last_name))
+            pet:pets(id, name, species, owner_id, owner:owners!owner_id(first_name, last_name))
           `)
           .eq('tenant_id', currentTenant.id)
           .in('service_type', ['daycare', 'walk', 'overnight'])
@@ -221,6 +214,7 @@ export default function POS() {
             type: 'consultation',
             pet_id: c.pet?.id || '',
             pet_name: c.pet?.name || 'N/A',
+            owner_id: c.pet?.owner_id || '',
             owner_name: formatOwnerName(c.pet?.owner),
             description: c.reason || 'Consulta veterinaria',
             amount: c.total_amount || 0,
@@ -233,39 +227,35 @@ export default function POS() {
 
       if (groomingRes.data) {
         groomingRes.data.forEach((g: any) => {
-          const alreadyCharged = charges.some(ch => ch.id === g.id);
-          if (!alreadyCharged) {
-            charges.push({
-              id: g.id,
-              type: 'grooming',
-              pet_id: g.pet?.id || '',
-              pet_name: g.pet?.name || 'N/A',
-              owner_name: formatOwnerName(g.pet?.owner),
-              description: g.service_name || 'Servicio de estetica',
-              amount: g.price || 0,
-              date: g.performed_at,
-              status: g.status
-            });
-          }
+          charges.push({
+            id: g.id,
+            type: 'grooming',
+            pet_id: g.pet?.id || '',
+            pet_name: g.pet?.name || 'N/A',
+            owner_id: g.pet?.owner_id || '',
+            owner_name: formatOwnerName(g.pet?.owner),
+            description: g.service_name || 'Servicio de estetica',
+            amount: g.price || 0,
+            date: g.performed_at,
+            status: g.status
+          });
         });
       }
 
       if (daycareRes.data) {
         daycareRes.data.forEach((d: any) => {
-          const alreadyCharged = charges.some(ch => ch.id === d.id);
-          if (!alreadyCharged) {
-            charges.push({
-              id: d.id,
-              type: 'daycare',
-              pet_id: d.pet?.id || '',
-              pet_name: d.pet?.name || 'N/A',
-              owner_name: formatOwnerName(d.pet?.owner),
-              description: d.service_name || 'Guarderia/Cuidado',
-              amount: d.price || 0,
-              date: d.performed_at,
-              status: d.status
-            });
-          }
+          charges.push({
+            id: d.id,
+            type: 'daycare',
+            pet_id: d.pet?.id || '',
+            pet_name: d.pet?.name || 'N/A',
+            owner_id: d.pet?.owner_id || '',
+            owner_name: formatOwnerName(d.pet?.owner),
+            description: d.service_name || 'Guarderia/Cuidado',
+            amount: d.price || 0,
+            date: d.performed_at,
+            status: d.status
+          });
         });
       }
 
@@ -274,6 +264,31 @@ export default function POS() {
     } catch (error) {
       console.error('Error loading pending charges:', error);
     }
+  };
+
+  const groupChargesByPet = (): PetGroup[] => {
+    const groups: Record<string, PetGroup> = {};
+
+    pendingCharges.forEach(charge => {
+      if (!charge.pet_id) return;
+
+      if (!groups[charge.pet_id]) {
+        groups[charge.pet_id] = {
+          pet_id: charge.pet_id,
+          pet_name: charge.pet_name,
+          owner_id: charge.owner_id,
+          owner_name: charge.owner_name,
+          species: '',
+          charges: [],
+          total_amount: 0
+        };
+      }
+
+      groups[charge.pet_id].charges.push(charge);
+      groups[charge.pet_id].total_amount += charge.amount;
+    });
+
+    return Object.values(groups).sort((a, b) => b.total_amount - a.total_amount);
   };
 
   const loadProducts = async () => {
@@ -332,39 +347,63 @@ export default function POS() {
     }
   };
 
-  const addPendingChargeToCart = (charge: PendingCharge) => {
-    const alreadyInCart = linkedSources.some(s => s.id === charge.id);
-    if (alreadyInCart) {
-      showInfo('Este cobro ya esta en el carrito');
+  const selectPetGroup = (petId: string) => {
+    const groups = groupChargesByPet();
+    const group = groups.find(g => g.pet_id === petId);
+
+    if (!group) {
+      showInfo('No hay cobros pendientes para esta mascota');
       return;
     }
 
-    setSelectedPet(charge.pet_id);
+    setCart([]);
+    setLinkedSources([]);
+    setSelectedPet(petId);
+    setSelectedPetGroup(petId);
 
-    if (charge.items && charge.items.length > 0) {
-      const items: CartItem[] = charge.items.map((item: any) => ({
-        ...item,
-        discount: item.discount || 0,
-        source_id: charge.id,
-        source_type: charge.type
-      }));
-      setCart(prev => [...prev, ...items]);
-    } else {
-      setCart(prev => [...prev, {
-        type: charge.type,
-        id: charge.id,
-        name: `${CHARGE_TYPE_CONFIG[charge.type]?.label || 'Servicio'}: ${charge.description}`,
-        quantity: 1,
-        unit_price: charge.amount,
-        discount: 0,
-        source_id: charge.id,
-        source_type: charge.type
-      }]);
-    }
+    const newCart: CartItem[] = [];
+    const newSources: { type: string; id: string }[] = [];
 
-    setLinkedSources(prev => [...prev, { type: charge.type, id: charge.id }]);
-    showSuccess(`${CHARGE_TYPE_CONFIG[charge.type]?.label} agregado al carrito`);
-    setShowPendingModal(false);
+    group.charges.forEach(charge => {
+      if (charge.items && charge.items.length > 0) {
+        charge.items.forEach((item: any) => {
+          newCart.push({
+            ...item,
+            discount: item.discount || 0,
+            source_id: charge.id,
+            source_type: charge.type
+          });
+        });
+      } else {
+        newCart.push({
+          type: charge.type,
+          id: charge.id,
+          name: `${CHARGE_TYPE_CONFIG[charge.type]?.label || 'Servicio'}: ${charge.description}`,
+          quantity: 1,
+          unit_price: charge.amount,
+          discount: 0,
+          source_id: charge.id,
+          source_type: charge.type
+        });
+      }
+      newSources.push({ type: charge.type, id: charge.id });
+    });
+
+    setCart(newCart);
+    setLinkedSources(newSources);
+    showSuccess(`Cobros de ${group.pet_name} cargados al carrito`);
+  };
+
+  const toggleGroupExpanded = (petId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(petId)) {
+        next.delete(petId);
+      } else {
+        next.add(petId);
+      }
+      return next;
+    });
   };
 
   const addToCart = (item: Product | Service, type: 'product' | 'service') => {
@@ -405,6 +444,13 @@ export default function POS() {
     setCart(cart.map((item, i) =>
       i === index ? { ...item, quantity: newQuantity } : item
     ));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+    setLinkedSources([]);
+    setSelectedPet('');
+    setSelectedPetGroup(null);
   };
 
   const calculateSubtotal = () => {
@@ -496,9 +542,7 @@ export default function POS() {
       }
 
       showSuccess(`Venta ${saleNumber} procesada exitosamente`);
-      setCart([]);
-      setSelectedPet('');
-      setLinkedSources([]);
+      clearCart();
       loadProducts();
       loadPendingCharges();
 
@@ -529,10 +573,10 @@ export default function POS() {
     s.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredPendingCharges = pendingCharges.filter(c =>
-    c.pet_name.toLowerCase().includes(pendingSearchTerm.toLowerCase()) ||
-    c.owner_name.toLowerCase().includes(pendingSearchTerm.toLowerCase()) ||
-    c.description.toLowerCase().includes(pendingSearchTerm.toLowerCase())
+  const petGroups = groupChargesByPet();
+  const filteredPetGroups = petGroups.filter(g =>
+    g.pet_name.toLowerCase().includes(pendingSearchTerm.toLowerCase()) ||
+    g.owner_name.toLowerCase().includes(pendingSearchTerm.toLowerCase())
   );
 
   const selectedPetInfo = pets.find(p => p.id === selectedPet);
@@ -544,42 +588,31 @@ export default function POS() {
           <h1 className="text-2xl font-bold text-gray-900">Punto de Venta</h1>
           <p className="text-gray-600">Procesa ventas y cobra servicios pendientes</p>
         </div>
-        <button
-          onClick={() => setShowPendingModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-        >
-          <FileText className="w-5 h-5" />
-          Cargar cobro pendiente
-        </button>
       </div>
 
-      {linkedSources.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <FileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-blue-900">Cobros vinculados</h3>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {linkedSources.map((source, idx) => {
-                  const config = CHARGE_TYPE_CONFIG[source.type];
-                  const Icon = config?.icon || FileText;
-                  return (
-                    <span key={idx} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config?.bg} ${config?.color}`}>
-                      <Icon className="w-3.5 h-3.5" />
-                      {config?.label}
-                    </span>
-                  );
-                })}
+      {selectedPetGroup && selectedPetInfo && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                <PawPrint className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-emerald-900">Cobrando servicios de: {selectedPetInfo.name}</h3>
+                <div className="flex items-center gap-2 text-sm text-emerald-700">
+                  <User className="w-4 h-4" />
+                  {selectedPetInfo.owner_name}
+                  <span className="text-emerald-500">|</span>
+                  <span>{linkedSources.length} servicio(s) pendiente(s)</span>
+                </div>
               </div>
             </div>
-            {selectedPetInfo && (
-              <div className="flex items-center gap-2 text-sm text-blue-700">
-                <PawPrint className="w-4 h-4" />
-                {selectedPetInfo.name} - {selectedPetInfo.owner_name}
-              </div>
-            )}
+            <button
+              onClick={clearCart}
+              className="px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-100 rounded-lg transition-colors"
+            >
+              Cambiar mascota
+            </button>
           </div>
         </div>
       )}
@@ -597,7 +630,7 @@ export default function POS() {
                 }`}
               >
                 <Clock className="w-4 h-4" />
-                Pendientes ({pendingCharges.length})
+                Pendientes ({petGroups.length} mascotas)
               </button>
               <button
                 onClick={() => setTabType('products')}
@@ -628,7 +661,7 @@ export default function POS() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder={tabType === 'pending' ? 'Buscar por mascota, dueno o servicio...' : `Buscar ${tabType === 'products' ? 'productos' : 'servicios'}...`}
+                  placeholder={tabType === 'pending' ? 'Buscar por mascota o dueno...' : `Buscar ${tabType === 'products' ? 'productos' : 'servicios'}...`}
                   value={tabType === 'pending' ? pendingSearchTerm : searchTerm}
                   onChange={(e) => tabType === 'pending' ? setPendingSearchTerm(e.target.value) : setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -636,68 +669,112 @@ export default function POS() {
               </div>
 
               {tabType === 'pending' && (
-                <div className="space-y-2 max-h-[450px] overflow-y-auto">
-                  {filteredPendingCharges.length === 0 ? (
+                <div className="space-y-3 max-h-[450px] overflow-y-auto">
+                  {filteredPetGroups.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                       <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                       <p className="font-medium">No hay cobros pendientes</p>
                       <p className="text-sm mt-1">Los servicios completados apareceran aqui</p>
                     </div>
                   ) : (
-                    filteredPendingCharges.map(charge => {
-                      const config = CHARGE_TYPE_CONFIG[charge.type];
-                      const Icon = config?.icon || FileText;
-                      const isInCart = linkedSources.some(s => s.id === charge.id);
+                    filteredPetGroups.map(group => {
+                      const isExpanded = expandedGroups.has(group.pet_id);
+                      const isSelected = selectedPetGroup === group.pet_id;
 
                       return (
-                        <button
-                          key={charge.id}
-                          onClick={() => !isInCart && addPendingChargeToCart(charge)}
-                          disabled={isInCart}
-                          className={`w-full p-4 rounded-xl border text-left transition-all ${
-                            isInCart
-                              ? 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed'
-                              : 'bg-white border-gray-200 hover:border-emerald-300 hover:shadow-md'
+                        <div
+                          key={group.pet_id}
+                          className={`rounded-xl border overflow-hidden transition-all ${
+                            isSelected
+                              ? 'border-emerald-300 bg-emerald-50'
+                              : 'border-gray-200 bg-white hover:border-gray-300'
                           }`}
                         >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-10 h-10 rounded-lg ${config?.bg} flex items-center justify-center flex-shrink-0`}>
-                              <Icon className={`w-5 h-5 ${config?.color}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${config?.bg} ${config?.color}`}>
-                                  {config?.label}
-                                </span>
-                                {isInCart && (
-                                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">
-                                    En carrito
-                                  </span>
-                                )}
+                          <div className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                isSelected ? 'bg-emerald-200' : 'bg-gray-100'
+                              }`}>
+                                <PawPrint className={`w-6 h-6 ${isSelected ? 'text-emerald-700' : 'text-gray-500'}`} />
                               </div>
-                              <h4 className="font-medium text-gray-900 truncate">{charge.description}</h4>
-                              <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <PawPrint className="w-3.5 h-3.5" />
-                                  {charge.pet_name}
-                                </span>
-                                <span className="flex items-center gap-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-gray-900">{group.pet_name}</h4>
+                                  {isSelected && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-200 text-emerald-800">
+                                      Seleccionado
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
                                   <User className="w-3.5 h-3.5" />
-                                  {charge.owner_name}
-                                </span>
+                                  {group.owner_name}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {group.charges.map(charge => {
+                                    const config = CHARGE_TYPE_CONFIG[charge.type];
+                                    return (
+                                      <span
+                                        key={charge.id}
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config?.bg} ${config?.color}`}
+                                      >
+                                        {config?.label}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-xl font-bold text-gray-900">${group.total_amount.toFixed(2)}</div>
+                                <div className="text-xs text-gray-500">{group.charges.length} servicio(s)</div>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => selectPetGroup(group.pet_id)}
+                                  disabled={isSelected}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                    isSelected
+                                      ? 'bg-emerald-200 text-emerald-700 cursor-default'
+                                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                  }`}
+                                >
+                                  {isSelected ? 'Cargado' : 'Cobrar'}
+                                </button>
+                                <button
+                                  onClick={() => toggleGroupExpanded(group.pet_id)}
+                                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </button>
                               </div>
                             </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-lg font-bold text-gray-900">${charge.amount.toFixed(2)}</div>
-                              <div className="text-xs text-gray-400">
-                                {new Date(charge.date).toLocaleDateString('es-MX')}
-                              </div>
-                            </div>
-                            {!isInCart && (
-                              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                            )}
                           </div>
-                        </button>
+
+                          {isExpanded && (
+                            <div className="border-t border-gray-200 bg-gray-50 p-3">
+                              <div className="space-y-2">
+                                {group.charges.map(charge => {
+                                  const config = CHARGE_TYPE_CONFIG[charge.type];
+                                  const Icon = config?.icon || FileText;
+                                  return (
+                                    <div key={charge.id} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-100">
+                                      <div className={`w-8 h-8 rounded-lg ${config?.bg} flex items-center justify-center flex-shrink-0`}>
+                                        <Icon className={`w-4 h-4 ${config?.color}`} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-sm text-gray-900 truncate">{charge.description}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {new Date(charge.date).toLocaleDateString('es-MX')}
+                                        </div>
+                                      </div>
+                                      <div className="font-semibold text-gray-900">${charge.amount.toFixed(2)}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })
                   )}
@@ -771,7 +848,7 @@ export default function POS() {
             </div>
 
             <div className="p-4">
-              {!linkedSources.length && (
+              {!selectedPetGroup && (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Mascota</label>
                   <select
@@ -794,7 +871,7 @@ export default function POS() {
                   <div className="text-center py-8 text-gray-400">
                     <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">Carrito vacio</p>
-                    <p className="text-xs mt-1">Agrega productos o carga un cobro pendiente</p>
+                    <p className="text-xs mt-1">Selecciona una mascota con cobros pendientes</p>
                   </div>
                 ) : (
                   cart.map((item, index) => (
@@ -898,90 +975,6 @@ export default function POS() {
           </div>
         </div>
       </div>
-
-      <Modal
-        isOpen={showPendingModal}
-        onClose={() => setShowPendingModal(false)}
-        title="Buscar cobro pendiente"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por mascota, dueno o servicio..."
-              value={pendingSearchTerm}
-              onChange={(e) => setPendingSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {filteredPendingCharges.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No se encontraron cobros pendientes</p>
-              </div>
-            ) : (
-              filteredPendingCharges.map(charge => {
-                const config = CHARGE_TYPE_CONFIG[charge.type];
-                const Icon = config?.icon || FileText;
-                const isInCart = linkedSources.some(s => s.id === charge.id);
-
-                return (
-                  <button
-                    key={charge.id}
-                    onClick={() => !isInCart && addPendingChargeToCart(charge)}
-                    disabled={isInCart}
-                    className={`w-full p-4 rounded-xl border text-left transition-all ${
-                      isInCart
-                        ? 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed'
-                        : 'bg-white border-gray-200 hover:border-emerald-300 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-lg ${config?.bg} flex items-center justify-center flex-shrink-0`}>
-                        <Icon className={`w-5 h-5 ${config?.color}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${config?.bg} ${config?.color}`}>
-                            {config?.label}
-                          </span>
-                          {isInCart && (
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">
-                              En carrito
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="font-medium text-gray-900">{charge.description}</h4>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <PawPrint className="w-3.5 h-3.5" />
-                            {charge.pet_name}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <User className="w-3.5 h-3.5" />
-                            {charge.owner_name}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-lg font-bold text-gray-900">${charge.amount.toFixed(2)}</div>
-                        <div className="text-xs text-gray-400">
-                          {new Date(charge.date).toLocaleDateString('es-MX')}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
