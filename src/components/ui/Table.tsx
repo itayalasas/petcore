@@ -1,5 +1,6 @@
-import { ChevronDown, ChevronUp, MoreVertical, CreditCard as Edit2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, MoreVertical } from 'lucide-react';
 import { ReactNode, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Column {
   key: string;
@@ -23,20 +24,63 @@ interface TableProps {
   actions?: TableAction[];
 }
 
+interface MenuPosition {
+  top: number;
+  left: number;
+}
+
 export default function Table({ columns, data, onRowClick, actions }: TableProps) {
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition>({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setOpenMenuIndex(null);
+        const clickedButton = buttonRefs.current.find(btn => btn?.contains(event.target as Node));
+        if (!clickedButton) {
+          setOpenMenuIndex(null);
+        }
       }
     }
 
+    function handleScroll() {
+      setOpenMenuIndex(null);
+    }
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
+
+  const handleMenuOpen = (idx: number, buttonEl: HTMLButtonElement) => {
+    if (openMenuIndex === idx) {
+      setOpenMenuIndex(null);
+      return;
+    }
+
+    const rect = buttonEl.getBoundingClientRect();
+    const menuWidth = 192;
+    const menuHeight = actions ? actions.length * 40 + 8 : 100;
+
+    let top = rect.bottom + 4;
+    let left = rect.right - menuWidth;
+
+    if (top + menuHeight > window.innerHeight) {
+      top = rect.top - menuHeight - 4;
+    }
+
+    if (left < 8) {
+      left = 8;
+    }
+
+    setMenuPosition({ top, left });
+    setOpenMenuIndex(idx);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -81,19 +125,24 @@ export default function Table({ columns, data, onRowClick, actions }: TableProps
                   </td>
                 ))}
                 {actions && actions.length > 0 && (
-                  <td className="px-6 py-4 text-right relative" ref={openMenuIndex === idx ? menuRef : null}>
+                  <td className="px-6 py-4 text-right">
                     <button
+                      ref={(el) => { buttonRefs.current[idx] = el; }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setOpenMenuIndex(openMenuIndex === idx ? null : idx);
+                        handleMenuOpen(idx, e.currentTarget);
                       }}
                       className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors inline-flex items-center justify-center"
                     >
                       <MoreVertical className="w-4 h-4 text-gray-500" />
                     </button>
 
-                    {openMenuIndex === idx && (
-                      <div className="absolute right-6 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 animate-in fade-in slide-in-from-top-2">
+                    {openMenuIndex === idx && createPortal(
+                      <div
+                        ref={menuRef}
+                        style={{ top: menuPosition.top, left: menuPosition.left }}
+                        className="fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999] animate-in fade-in slide-in-from-top-2"
+                      >
                         {actions.map((action, actionIdx) => (
                           <button
                             key={actionIdx}
@@ -112,7 +161,8 @@ export default function Table({ columns, data, onRowClick, actions }: TableProps
                             {action.label}
                           </button>
                         ))}
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </td>
                 )}
