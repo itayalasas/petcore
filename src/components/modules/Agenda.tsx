@@ -206,22 +206,38 @@ export default function Agenda() {
     return { start, end, duration };
   };
 
-  const getAppointmentsStartingInSlot = (slotStart: Date, slotEnd: Date) => {
-    return filteredAppointments
-      .filter(appt => {
-        const { start } = getAppointmentRange(appt);
-        return start >= slotStart && start < slotEnd;
-      })
-      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  const getVisibleWindow = (day: Date) => {
+    const start = getSlotStart(day, START_HOUR, 0);
+    const end = getSlotStart(day, END_HOUR, 0);
+    return { start, end };
   };
 
-  const getBlockingAppointmentForSlot = (slotStart: Date, slotEnd: Date) => {
-    return filteredAppointments
-      .filter(appt => {
-        const { start, end } = getAppointmentRange(appt);
-        return start < slotStart && end > slotStart && start < slotEnd;
-      })
-      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
+  const getAppointmentPlacement = (appointment: AppointmentWithDetails, day: Date) => {
+    const { start, end, duration } = getAppointmentRange(appointment);
+    const { start: windowStart, end: windowEnd } = getVisibleWindow(day);
+
+    if (end <= windowStart || start >= windowEnd) {
+      return null;
+    }
+
+    const clampedStart = start < windowStart ? windowStart : start;
+    const clampedEnd = end > windowEnd ? windowEnd : end;
+    const minutesFromStart = (clampedStart.getTime() - windowStart.getTime()) / 60000;
+    const visibleMinutes = Math.max((clampedEnd.getTime() - clampedStart.getTime()) / 60000, SLOT_MINUTES);
+    const pixelsPerMinute = SLOT_HEIGHT_PX / SLOT_MINUTES;
+
+    return {
+      top: minutesFromStart * pixelsPerMinute,
+      height: visibleMinutes * pixelsPerMinute,
+      duration,
+    };
+  };
+
+  const getSlotOccupants = (slotStart: Date, slotEnd: Date) => {
+    return filteredAppointments.filter(appt => {
+      const { start, end } = getAppointmentRange(appt);
+      return start < slotEnd && end > slotStart;
+    });
   };
 
   const filteredAppointments = appointments.filter(appt => {
@@ -395,7 +411,8 @@ export default function Agenda() {
 
   const renderTimeGrid = (days: Date[]) => {
     const timeSlots = getTimeSlots();
-    const gridColumns = days.length === 1 ? 'grid-cols-[80px_1fr]' : 'grid-cols-[80px_repeat(7,1fr)]';
+    const gridColumns = days.length === 1 ? 'grid-cols-[80px_1fr]' : `grid-cols-[80px_repeat(${days.length},minmax(0,1fr))]`;
+    const timelineHeight = timeSlots.length * SLOT_HEIGHT_PX;
 
     return (
       <div className="bg-white rounded-lg border overflow-auto">
@@ -415,52 +432,78 @@ export default function Agenda() {
             </div>
           ))}
 
-          {timeSlots.map(slot => {
+          <div className="bg-gray-50 border-r">
+            {timeSlots.map(slot => (
+              <div
+                key={`time-${slot.label}`}
+                className="border-b px-2 text-xs text-gray-500 flex items-start justify-start"
+                style={{ height: SLOT_HEIGHT_PX, paddingTop: 4 }}
+              >
+                {slot.label}
+              </div>
+            ))}
+          </div>
+
+          {days.map(day => {
+            const dayAppointments = filteredAppointments
+              .filter(appt => {
+                const apptDate = new Date(appt.scheduled_at);
+                return isSameDay(apptDate, day);
+              })
+              .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
             return (
-              <div key={`slot-${slot.label}`} className="contents">
-                <div className="bg-gray-50 border-b px-2 py-1 text-xs text-gray-500" style={{ height: SLOT_HEIGHT_PX }}>
-                  {slot.label}
-                </div>
-                {days.map(day => {
+              <div
+                key={day.toISOString()}
+                className="relative border-l"
+                style={{ height: timelineHeight }}
+              >
+                {timeSlots.map((slot, index) => {
                   const slotStart = getSlotStart(day, slot.hour, slot.minute);
                   const slotEnd = getSlotEnd(slotStart);
-                  const startingAppointments = getAppointmentsStartingInSlot(slotStart, slotEnd);
-                  const blockingAppointment = getBlockingAppointmentForSlot(slotStart, slotEnd);
-                  const isEmpty = startingAppointments.length === 0 && !blockingAppointment;
+                  const slotOccupants = getSlotOccupants(slotStart, slotEnd);
+                  const canCreateHere = slotOccupants.length === 0;
 
                   return (
-                    <div
-                      key={`${day.toISOString()}-${slot.label}`}
-                      className={`border-b border-l p-1 transition-colors ${isEmpty ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'}`}
-                      style={{ height: SLOT_HEIGHT_PX }}
+                    <button
+                      key={`slot-${day.toISOString()}-${slot.label}`}
+                      type="button"
+                      className={`absolute left-0 right-0 border-b border-dashed border-gray-200 transition-colors ${canCreateHere ? 'hover:bg-gray-50/70 cursor-pointer' : 'cursor-not-allowed bg-emerald-50/20'}`}
+                      style={{ top: index * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
                       onClick={() => {
-                        if (isEmpty) {
+                        if (canCreateHere) {
                           openNewAppointmentModal(day, slot.hour, slot.minute);
                         }
                       }}
+                    />
+                  );
+                })}
+
+                {dayAppointments.map(appt => {
+                  const placement = getAppointmentPlacement(appt, day);
+                  if (!placement) return null;
+
+                  return (
+                    <div
+                      key={appt.id}
+                      className="absolute z-20 left-1 right-1"
+                      style={{
+                        top: placement.top + 2,
+                        height: Math.max(placement.height - 4, 30),
+                      }}
                     >
-                      {startingAppointments.length > 0 ? (
-                        <div className="space-y-1 overflow-hidden">
-                          {startingAppointments.slice(0, 2).map(appt => renderAppointmentCard(appt, true))}
-                          {startingAppointments.length > 2 && (
-                            <div className="text-[11px] text-gray-500 text-center">
-                              +{startingAppointments.length - 2} más
-                            </div>
-                          )}
-                        </div>
-                      ) : blockingAppointment ? (
-                        <div className="h-full rounded border border-dashed border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700 flex flex-col justify-center overflow-hidden">
-                          <div className="font-semibold truncate">{blockingAppointment.pet?.name || 'Ocupado'}</div>
-                          <div className="truncate">Bloqueado hasta {new Date(getAppointmentRange(blockingAppointment).end).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</div>
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                          <Plus className="w-4 h-4 text-gray-400" />
-                        </div>
-                      )}
+                      {renderAppointmentCard(appt, true, true)}
                     </div>
                   );
                 })}
+
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    backgroundImage: `linear-gradient(to bottom, transparent 0, transparent ${SLOT_HEIGHT_PX - 1}px, rgba(226,232,240,0.9) ${SLOT_HEIGHT_PX - 1}px, rgba(226,232,240,0.9) ${SLOT_HEIGHT_PX}px)`,
+                    backgroundSize: `100% ${SLOT_HEIGHT_PX}px`,
+                  }}
+                />
               </div>
             );
           })}
@@ -599,7 +642,7 @@ export default function Agenda() {
     return `${pet.name} - ${pet.species} (${pet.breed})${ownerName ? ` - ${ownerName}` : ''}`;
   };
 
-  const renderAppointmentCard = (appointment: AppointmentWithDetails, compact = false) => {
+  const renderAppointmentCard = (appointment: AppointmentWithDetails, compact = false, timeline = false) => {
     const statusClass = STATUS_COLORS[appointment.status] || STATUS_COLORS.pending;
     const time = new Date(appointment.scheduled_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
     const assignedUser = tenantUsers.find(u => u.id === appointment.employee_id);
@@ -607,73 +650,81 @@ export default function Agenda() {
     return (
       <div
         key={appointment.id}
-        className={`p-2 rounded border ${statusClass} ${compact ? 'text-xs' : 'text-sm'} cursor-pointer hover:shadow-md transition-shadow`}
+        className={`rounded border ${statusClass} ${compact ? 'text-xs' : 'text-sm'} cursor-pointer hover:shadow-md transition-shadow ${timeline ? 'h-full shadow-lg ring-1 ring-white/50 backdrop-blur-sm' : 'p-2'}`}
         onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
       >
-        <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
-        {compact && (
-          <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {time} · {appointment.duration_minutes || 30} min
-          </div>
-        )}
-        {!compact && (
-          <>
-            {appointment.owner && (
-              <div className="text-xs opacity-75">
-                {appointment.owner.first_name} {appointment.owner.last_name}
-              </div>
-            )}
-            <div className="text-xs opacity-75">{appointment.service?.name}</div>
-            <div className="flex items-center gap-1 mt-1 text-xs">
+        <div className={`${timeline ? 'h-full p-2 flex flex-col' : ''}`}>
+          <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
+          {compact && (
+            <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1 truncate">
               <Clock className="w-3 h-3" />
-              {time}
+              {time} · {appointment.duration_minutes || 30} min
             </div>
-            {assignedUser && (
+          )}
+          {timeline && (
+            <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1 truncate">
+              <Clock className="w-3 h-3" />
+              {time} · {appointment.duration_minutes || 30} min
+            </div>
+          )}
+          {!compact && !timeline && (
+            <>
+              {appointment.owner && (
+                <div className="text-xs opacity-75">
+                  {appointment.owner.first_name} {appointment.owner.last_name}
+                </div>
+              )}
+              <div className="text-xs opacity-75">{appointment.service?.name}</div>
               <div className="flex items-center gap-1 mt-1 text-xs">
-                <User className="w-3 h-3" />
-                {assignedUser.first_name} {assignedUser.last_name}
+                <Clock className="w-3 h-3" />
+                {time}
               </div>
+              {assignedUser && (
+                <div className="flex items-center gap-1 mt-1 text-xs">
+                  <User className="w-3 h-3" />
+                  {assignedUser.first_name} {assignedUser.last_name}
+                </div>
+              )}
+            </>
+          )}
+          <div className={`flex gap-1 ${timeline ? 'mt-auto pt-2' : 'mt-2'}`}>
+            {appointment.status === 'pending' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleUpdateStatus(appointment, 'confirmed'); }}
+                className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                title="Confirmar"
+              >
+                <CheckCircle className="w-3 h-3" />
+              </button>
             )}
-          </>
-        )}
-        <div className="flex gap-1 mt-2">
-          {appointment.status === 'pending' && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(appointment, 'confirmed'); }}
-              className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-              title="Confirmar"
-            >
-              <CheckCircle className="w-3 h-3" />
-            </button>
-          )}
-          {(appointment.status === 'confirmed' || appointment.status === 'scheduled') && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
-              className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600"
-              title="Atender"
-            >
-              <Play className="w-3 h-3" />
-            </button>
-          )}
-          {appointment.status === 'in_progress' && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
-              className="p-1 bg-cyan-500 text-white rounded hover:bg-cyan-600"
-              title="Continuar atendiendo"
-            >
-              {appointment.service?.service_type === 'grooming' ? <Scissors className="w-3 h-3" /> : <Stethoscope className="w-3 h-3" />}
-            </button>
-          )}
-          {!appointment.employee_id && (
-            <button
-              onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
-              className="p-1 bg-gray-500 text-white rounded hover:bg-gray-600"
-              title="Asignar"
-            >
-              <UserPlus className="w-3 h-3" />
-            </button>
-          )}
+            {(appointment.status === 'confirmed' || appointment.status === 'scheduled') && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
+                className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600"
+                title="Atender"
+              >
+                <Play className="w-3 h-3" />
+              </button>
+            )}
+            {appointment.status === 'in_progress' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
+                className="p-1 bg-cyan-500 text-white rounded hover:bg-cyan-600"
+                title="Continuar atendiendo"
+              >
+                {appointment.service?.service_type === 'grooming' ? <Scissors className="w-3 h-3" /> : <Stethoscope className="w-3 h-3" />}
+              </button>
+            )}
+            {!appointment.employee_id && (
+              <button
+                onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
+                className="p-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+                title="Asignar"
+              >
+                <UserPlus className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
