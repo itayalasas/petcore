@@ -949,25 +949,25 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Raza</p>
                         <p className="font-semibold text-gray-900">{selectedPet.breed}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Edad</p>
                         <p className="font-semibold text-gray-900">{getDisplayAge(selectedPet)}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Sexo</p>
                         <p className="font-semibold text-gray-900">
                           {selectedPet.gender === 'male' ? 'Macho' : selectedPet.gender === 'female' ? 'Hembra' : selectedPet.gender}
                         </p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Color</p>
                         <p className="font-semibold text-gray-900">{selectedPet.color || 'No especificado'}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Peso</p>
                         <p className="font-semibold text-gray-900">
                           {selectedPet.weight ? `${selectedPet.weight} kg` : 'No especificado'}
@@ -977,7 +977,7 @@ export default function Mascotas() {
 
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="text-sm font-semibold text-gray-900 mb-4">Información del propietario</h3>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="flex items-center gap-3">
                             <User className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -1051,13 +1051,13 @@ export default function Mascotas() {
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="text-sm font-semibold text-gray-900 mb-4">Microchip y documentos</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-xs text-gray-500 mb-1">Número de microchip</p>
                           <p className="font-mono text-sm font-semibold text-gray-900">
                             {selectedPet.has_chip && selectedPet.chip_number ? selectedPet.chip_number : 'Sin microchip'}
                           </p>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-xs text-gray-500 mb-1">Registrado</p>
                           <p className="text-sm font-semibold text-gray-900">
                             {new Date(selectedPet.created_at).toLocaleDateString('es-ES')}
@@ -1076,7 +1076,7 @@ export default function Mascotas() {
                 content: (
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                             <Heart className="w-5 h-5 text-green-600" />
@@ -1087,7 +1087,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <Scale className="w-5 h-5 text-gray-400" />
                           <div>
@@ -1096,7 +1096,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <Syringe className="w-5 h-5 text-gray-400" />
                           <div>
@@ -1173,7 +1173,7 @@ export default function Mascotas() {
 
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de peso</h3>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-gray-600">Mar 2024</span>
@@ -1201,7 +1201,7 @@ export default function Mascotas() {
                 content: (
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
+                      <div className="rounded-3xl border border-teal-200 bg-teal-50 p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
                             <Stethoscope className="w-5 h-5 text-teal-600" />
@@ -1212,7 +1212,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                             <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -1225,7 +1225,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Ultima consulta</p>
                         <p className="font-semibold text-gray-900">
                           {selectedPetConsultations.length > 0
@@ -1242,18 +1242,18 @@ export default function Mascotas() {
                           <button
                             key={consultation.id}
                             onClick={() => handleViewConsultationDetail(consultation.id)}
-                            className={`w-full text-left p-4 border rounded-lg transition-all hover:shadow-md ${
+                            className={`w-full rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${
                               consultation.status === 'completed'
-                                ? 'bg-white border-gray-200 hover:border-teal-300'
-                                : 'bg-amber-50 border-amber-200 hover:border-amber-300'
+                                ? 'border-slate-200 bg-white hover:border-teal-200'
+                                : 'border-amber-200 bg-amber-50 hover:border-amber-300'
                             }`}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex items-start gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${
                                   consultation.status === 'completed' ? 'bg-teal-100' : 'bg-amber-100'
                                 }`}>
-                                  <Stethoscope className={`w-5 h-5 ${
+                                  <Stethoscope className={`h-5 w-5 ${
                                     consultation.status === 'completed' ? 'text-teal-600' : 'text-amber-600'
                                   }`} />
                                 </div>
@@ -1298,11 +1298,11 @@ export default function Mascotas() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right flex flex-col items-end gap-2">
-                                <Badge variant={consultation.status === 'completed' ? 'success' : 'warning'}>
+                              <div className="flex flex-col items-end gap-2 text-right">
+                                <Badge variant={consultation.status === 'completed' ? 'success' : 'warning'} size="sm">
                                   {consultation.status === 'completed' ? 'Completada' : 'En progreso'}
                                 </Badge>
-                                <span className="text-xs text-teal-600 font-medium">Ver detalles</span>
+                                <span className="text-xs font-medium text-teal-600">Ver detalles</span>
                               </div>
                             </div>
                           </button>
@@ -1324,7 +1324,7 @@ export default function Mascotas() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div className="grid grid-cols-2 gap-4 flex-1">
-                        <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                        <div className="rounded-3xl border border-pink-200 bg-pink-50 p-4 shadow-sm">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
                               <Scissors className="w-5 h-5 text-pink-600" />
@@ -1335,7 +1335,7 @@ export default function Mascotas() {
                             </div>
                           </div>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-xs text-gray-500 mb-1">Ultimo servicio</p>
                           <p className="font-semibold text-gray-900">
                             {selectedPetServices.length > 0
@@ -1361,16 +1361,16 @@ export default function Mascotas() {
                           return (
                             <div
                               key={service.id}
-                              className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:border-pink-200 transition-colors"
+                              className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                             >
-                              <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-pink-100">
                                 <Icon className="w-5 h-5 text-pink-600" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-start justify-between">
                                   <div>
-                                    <p className="text-sm font-medium text-gray-900">{service.service_name}</p>
-                                    <p className="text-xs text-gray-600 mt-1">
+                                    <p className="text-sm font-semibold text-slate-900">{service.service_name}</p>
+                                    <p className="mt-1 text-xs text-slate-600">
                                       {new Date(service.performed_at).toLocaleDateString('es-ES', {
                                         weekday: 'long',
                                         year: 'numeric',
@@ -1379,7 +1379,7 @@ export default function Mascotas() {
                                       })}
                                     </p>
                                     <div className="flex items-center gap-2 mt-2">
-                                      <Badge variant="default">{getServiceTypeLabel(service.service_type)}</Badge>
+                                      <Badge variant="default" size="sm">{getServiceTypeLabel(service.service_type)}</Badge>
                                       {service.duration_minutes && (
                                         <span className="text-xs text-gray-500">{service.duration_minutes} min</span>
                                       )}
@@ -1393,17 +1393,17 @@ export default function Mascotas() {
                                       </div>
                                     )}
                                     {service.notes && (
-                                      <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
+                                      <p className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                                         {service.notes}
                                       </p>
                                     )}
                                   </div>
-                                  <div className="text-right">
-                                    <Badge variant={service.status === 'completed' ? 'success' : 'warning'}>
+                                  <div className="flex flex-col items-end text-right">
+                                    <Badge variant={service.status === 'completed' ? 'success' : 'warning'} size="sm">
                                       {service.status === 'completed' ? 'Completado' : service.status}
                                     </Badge>
                                     {service.price > 0 && (
-                                      <p className="text-sm font-semibold text-gray-900 mt-2">
+                                      <p className="mt-2 text-sm font-semibold text-slate-900">
                                         ${service.price.toFixed(2)}
                                       </p>
                                     )}
@@ -1594,7 +1594,7 @@ export default function Mascotas() {
           setShowConsultationDetailModal(false);
           setSelectedConsultationDetail(null);
         }}
-        title="Detalle de Consulta Medica"
+        title="Detalle de consulta médica"
         size="lg"
       >
         {loadingConsultationDetail ? (
@@ -1603,7 +1603,7 @@ export default function Mascotas() {
           </div>
         ) : selectedConsultationDetail?.consultation ? (
           <div className="space-y-6">
-            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-teal-50 via-white to-cyan-50 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
                   <Stethoscope className="w-6 h-6 text-teal-600" />
@@ -1637,21 +1637,21 @@ export default function Mascotas() {
               selectedConsultationDetail.consultation.heart_rate) && (
               <div className="grid grid-cols-3 gap-4">
                 {selectedConsultationDetail.consultation.weight && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm text-center">
                     <Scale className="w-5 h-5 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">Peso</p>
                     <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.weight} kg</p>
                   </div>
                 )}
                 {selectedConsultationDetail.consultation.temperature && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm text-center">
                     <AlertCircle className="w-5 h-5 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">Temperatura</p>
                     <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.temperature}°C</p>
                   </div>
                 )}
                 {selectedConsultationDetail.consultation.heart_rate && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm text-center">
                     <Heart className="w-5 h-5 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">Frec. Cardiaca</p>
                     <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.heart_rate} BPM</p>
@@ -1661,11 +1661,23 @@ export default function Mascotas() {
             )}
 
             {selectedConsultationDetail.consultation.symptoms && (
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-2">Sintomas observados</h4>
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
-                  {selectedConsultationDetail.consultation.symptoms}
-                </p>
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">Síntomas observados</h4>
+                <p className="text-sm text-slate-700">{selectedConsultationDetail.consultation.symptoms}</p>
+              </div>
+            )}
+
+            {selectedConsultationDetail.consultation.diagnosis && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">Diagnóstico clínico</h4>
+                <p className="text-sm text-slate-700">{selectedConsultationDetail.consultation.diagnosis}</p>
+              </div>
+            )}
+
+            {selectedConsultationDetail.consultation.treatment && (
+              <div className="rounded-3xl border border-slate-200 bg-blue-50 p-5 shadow-sm">
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">Plan terapéutico</h4>
+                <p className="text-sm text-slate-700">{selectedConsultationDetail.consultation.treatment}</p>
               </div>
             )}
 
@@ -1673,11 +1685,11 @@ export default function Mascotas() {
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-teal-600" />
-                  Diagnosticos
+                  Diagnósticos
                 </h4>
                 <div className="space-y-2">
                   {selectedConsultationDetail.diagnoses.map((diag: any, index: number) => (
-                    <div key={diag.id || index} className="flex items-start gap-3 bg-white border border-gray-200 rounded-lg p-3">
+                    <div key={diag.id || index} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           {diag.is_primary && (
@@ -1697,13 +1709,13 @@ export default function Mascotas() {
 
             {selectedConsultationDetail.treatments.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Syringe className="w-4 h-4 text-teal-600" />
-                  Tratamientos
-                </h4>
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <h4 className="text-sm font-semibold text-slate-900">Tratamientos</h4>
+                  <Badge variant="info" size="sm">{selectedConsultationDetail.treatments.length}</Badge>
+                </div>
                 <div className="space-y-2">
                   {selectedConsultationDetail.treatments.map((treatment: any, index: number) => (
-                    <div key={treatment.id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div key={treatment.id || index} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
                       <p className="font-medium text-gray-900">{treatment.treatment_name}</p>
                       {treatment.instructions && (
                         <p className="text-sm text-gray-600 mt-1">{treatment.instructions}</p>
@@ -1724,13 +1736,13 @@ export default function Mascotas() {
 
             {selectedConsultationDetail.prescriptions.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Pill className="w-4 h-4 text-teal-600" />
-                  Prescripciones / Recetas
-                </h4>
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <h4 className="text-sm font-semibold text-slate-900">Prescripciones / recetas</h4>
+                  <Badge variant="warning" size="sm">{selectedConsultationDetail.prescriptions.length}</Badge>
+                </div>
                 <div className="space-y-2">
                   {selectedConsultationDetail.prescriptions.map((prescription: any, index: number) => (
-                    <div key={prescription.id || index} className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div key={prescription.id || index} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
                       <p className="font-medium text-gray-900">{prescription.medication_name}</p>
                       <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
                         {prescription.dosage && (
@@ -1772,7 +1784,7 @@ export default function Mascotas() {
             {selectedConsultationDetail.consultation.notes && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-2">Notas adicionales</h4>
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-700 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                   {selectedConsultationDetail.consultation.notes}
                 </p>
               </div>
@@ -1792,7 +1804,7 @@ export default function Mascotas() {
         ) : (
           <div className="text-center py-8 text-gray-500">
             <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-            <p>No se encontro la informacion de la consulta</p>
+            <p>No se encontró la información de la consulta</p>
           </div>
         )}
       </Modal>
