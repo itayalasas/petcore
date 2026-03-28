@@ -648,85 +648,129 @@ export default function Agenda() {
     const statusClass = STATUS_COLORS[appointment.status] || STATUS_COLORS.pending;
     const time = new Date(appointment.scheduled_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
     const assignedUser = tenantUsers.find(u => u.id === appointment.employee_id);
+    const serviceName = appointment.service?.name || 'Cita';
+    const ownerName = appointment.owner ? `${appointment.owner.first_name} ${appointment.owner.last_name}` : 'Sin propietario';
+    const duration = appointment.duration_minutes || 30;
+
+    if (timeline) {
+      return (
+        <button
+          key={appointment.id}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
+          className={`w-full h-full overflow-hidden rounded-xl border border-white/70 text-left shadow-md ring-1 ring-black/5 transition-all hover:shadow-lg hover:-translate-y-[1px] ${statusClass}`}
+        >
+          <div className="flex h-full flex-col gap-1 p-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold leading-tight">
+                  {appointment.pet?.name || 'Sin mascota'}
+                </div>
+                <div className="truncate text-[11px] font-medium opacity-80 leading-tight">
+                  {serviceName}
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+                {appointment.status.replace('_', ' ')}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 text-[11px] opacity-80">
+              <Clock className="h-3 w-3" />
+              <span>{time}</span>
+              <span>·</span>
+              <span>{duration} min</span>
+            </div>
+
+            {appointment.owner && (
+              <div className="truncate text-[11px] opacity-75">
+                {ownerName}
+              </div>
+            )}
+
+            <div className="mt-auto flex items-center justify-between gap-2 pt-1 text-[10px] opacity-80">
+              <div className="truncate">
+                {assignedUser ? `${assignedUser.first_name} ${assignedUser.last_name}` : 'Sin asignar'}
+              </div>
+              <div className="rounded-md bg-white/60 px-2 py-0.5 font-medium">
+                Abrir
+              </div>
+            </div>
+          </div>
+        </button>
+      );
+    }
 
     return (
       <div
         key={appointment.id}
-        className={`rounded border ${statusClass} ${compact ? 'text-xs' : 'text-sm'} cursor-pointer hover:shadow-md transition-shadow ${timeline ? 'h-full shadow-lg ring-1 ring-white/50 backdrop-blur-sm' : 'p-2'}`}
+        className={`rounded border ${statusClass} ${compact ? 'text-xs' : 'text-sm'} cursor-pointer hover:shadow-md transition-shadow p-2`}
         onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
       >
-        <div className={`${timeline ? 'h-full p-2 flex flex-col' : ''}`}>
-          <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
-          {compact && (
-            <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1 truncate">
-              <Clock className="w-3 h-3" />
-              {time} · {appointment.duration_minutes || 30} min
-            </div>
-          )}
-          {timeline && (
-            <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1 truncate">
-              <Clock className="w-3 h-3" />
-              {time} · {appointment.duration_minutes || 30} min
-            </div>
-          )}
-          {!compact && !timeline && (
-            <>
-              {appointment.owner && (
-                <div className="text-xs opacity-75">
-                  {appointment.owner.first_name} {appointment.owner.last_name}
-                </div>
-              )}
-              <div className="text-xs opacity-75">{appointment.service?.name}</div>
-              <div className="flex items-center gap-1 mt-1 text-xs">
-                <Clock className="w-3 h-3" />
-                {time}
-              </div>
-              {assignedUser && (
-                <div className="flex items-center gap-1 mt-1 text-xs">
-                  <User className="w-3 h-3" />
-                  {assignedUser.first_name} {assignedUser.last_name}
-                </div>
-              )}
-            </>
-          )}
-          <div className={`flex gap-1 ${timeline ? 'mt-auto pt-2' : 'mt-2'}`}>
-            {appointment.status === 'pending' && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleUpdateStatus(appointment, 'confirmed'); }}
-                className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                title="Confirmar"
-              >
-                <CheckCircle className="w-3 h-3" />
-              </button>
-            )}
-            {(appointment.status === 'confirmed' || appointment.status === 'scheduled') && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
-                className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600"
-                title="Atender"
-              >
-                <Play className="w-3 h-3" />
-              </button>
-            )}
-            {appointment.status === 'in_progress' && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
-                className="p-1 bg-cyan-500 text-white rounded hover:bg-cyan-600"
-                title="Continuar atendiendo"
-              >
-                {appointment.service?.service_type === 'grooming' ? <Scissors className="w-3 h-3" /> : <Stethoscope className="w-3 h-3" />}
-              </button>
-            )}
-            {!appointment.employee_id && (
-              <button
-                onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
-                className="p-1 bg-gray-500 text-white rounded hover:bg-gray-600"
-                title="Asignar"
-              >
-                <UserPlus className="w-3 h-3" />
-              </button>
-            )}
+        <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
+        {compact && (
+          <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1 truncate">
+            <Clock className="w-3 h-3" />
+            {time} · {duration} min
           </div>
+        )}
+        {!compact && (
+          <>
+            {appointment.owner && (
+              <div className="text-xs opacity-75">
+                {ownerName}
+              </div>
+            )}
+            <div className="text-xs opacity-75">{serviceName}</div>
+            <div className="flex items-center gap-1 mt-1 text-xs">
+              <Clock className="w-3 h-3" />
+              {time}
+            </div>
+            {assignedUser && (
+              <div className="flex items-center gap-1 mt-1 text-xs">
+                <User className="w-3 h-3" />
+                {assignedUser.first_name} {assignedUser.last_name}
+              </div>
+            )}
+          </>
+        )}
+        <div className="flex gap-1 mt-2">
+          {appointment.status === 'pending' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(appointment, 'confirmed'); }}
+              className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              title="Confirmar"
+            >
+              <CheckCircle className="w-3 h-3" />
+            </button>
+          )}
+          {(appointment.status === 'confirmed' || appointment.status === 'scheduled') && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
+              className="p-1 bg-emerald-500 text-white rounded hover:bg-emerald-600"
+              title="Atender"
+            >
+              <Play className="w-3 h-3" />
+            </button>
+          )}
+          {appointment.status === 'in_progress' && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleAttendAppointment(appointment); }}
+              className="p-1 bg-cyan-500 text-white rounded hover:bg-cyan-600"
+              title="Continuar atendiendo"
+            >
+              {appointment.service?.service_type === 'grooming' ? <Scissors className="w-3 h-3" /> : <Stethoscope className="w-3 h-3" />}
+            </button>
+          )}
+          {!appointment.employee_id && (
+            <button
+              onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
+              className="p-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+              title="Asignar"
+            >
+              <UserPlus className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     );
