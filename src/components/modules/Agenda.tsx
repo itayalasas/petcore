@@ -5,7 +5,6 @@ import { useToast } from '../../contexts/ToastContext';
 import { appointmentsService, AppointmentWithDetails, servicesService, Service } from '../../services/servicesAppointments';
 import { referralsService, ReferralWithDetails } from '../../services/cases';
 import { petsService, Pet } from '../../services/pets';
-import { ownersService, Owner } from '../../services/owners';
 import { usersService, TenantUser } from '../../services/users';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
@@ -24,20 +23,10 @@ const DEPARTMENTS = [
   { value: 'laboratory', label: 'Laboratorio' },
 ];
 
-const DEPARTMENT_BADGES: Record<string, { bg: string; text: string }> = {
-  general: { bg: 'bg-gray-100', text: 'text-gray-700' },
-  veterinary: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  grooming: { bg: 'bg-pink-100', text: 'text-pink-700' },
-  daycare: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  store: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  laboratory: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
-  surgery: { bg: 'bg-red-100', text: 'text-red-700' },
-  imaging: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  reception: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  admin: { bg: 'bg-slate-100', text: 'text-slate-700' },
-};
-
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
+const START_HOUR = 8;
+const END_HOUR = 20;
+const SLOT_MINUTES = 30;
+const SLOT_HEIGHT_PX = 40;
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 border-amber-300 text-amber-800',
@@ -65,7 +54,6 @@ export default function Agenda() {
   const [tenantUsers, setTenantUsers] = useState<TenantUser[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
-  const [owners, setOwners] = useState<Owner[]>([]);
   const [pendingReferrals, setPendingReferrals] = useState<ReferralWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigningUser, setAssigningUser] = useState(false);
@@ -143,20 +131,18 @@ export default function Agenda() {
     if (!currentTenant) return;
     setLoading(true);
     try {
-      const [appts, users, srvs, refs, petsData, ownersData] = await Promise.all([
+      const [appts, users, srvs, refs, petsData] = await Promise.all([
         appointmentsService.getAll(currentTenant.id),
         usersService.getTenantUsers(currentTenant.id),
         servicesService.getAll(currentTenant.id),
         referralsService.getPending(currentTenant.id),
         petsService.getAllPets(currentTenant.id),
-        ownersService.getAll(currentTenant.id),
       ]);
       setAppointments(appts);
       setTenantUsers(users);
       setServices(srvs);
       setPendingReferrals(refs);
       setPets(petsData);
-      setOwners(ownersData);
     } catch (error) {
       console.error('Error loading data:', error);
       showError('Error al cargar la agenda');
@@ -184,6 +170,58 @@ export default function Agenda() {
       day.setDate(day.getDate() + i);
       return day;
     });
+  };
+
+  const getTimeSlots = () => {
+    const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+    return Array.from({ length: totalSlots }, (_, index) => {
+      const minutesFromStart = index * SLOT_MINUTES;
+      const hour = START_HOUR + Math.floor(minutesFromStart / 60);
+      const minute = minutesFromStart % 60;
+      return {
+        hour,
+        minute,
+        label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      };
+    });
+  };
+
+  const getSlotStart = (baseDate: Date, hour: number, minute: number) => {
+    const slotStart = new Date(baseDate);
+    slotStart.setHours(hour, minute, 0, 0);
+    return slotStart;
+  };
+
+  const getSlotEnd = (slotStart: Date) => {
+    const slotEnd = new Date(slotStart);
+    slotEnd.setMinutes(slotEnd.getMinutes() + SLOT_MINUTES);
+    return slotEnd;
+  };
+
+  const getAppointmentRange = (appointment: AppointmentWithDetails) => {
+    const start = new Date(appointment.scheduled_at);
+    const duration = appointment.duration_minutes || 30;
+    const end = new Date(start);
+    end.setMinutes(end.getMinutes() + duration);
+    return { start, end, duration };
+  };
+
+  const getAppointmentsStartingInSlot = (slotStart: Date, slotEnd: Date) => {
+    return filteredAppointments
+      .filter(appt => {
+        const { start } = getAppointmentRange(appt);
+        return start >= slotStart && start < slotEnd;
+      })
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  };
+
+  const getBlockingAppointmentForSlot = (slotStart: Date, slotEnd: Date) => {
+    return filteredAppointments
+      .filter(appt => {
+        const { start, end } = getAppointmentRange(appt);
+        return start < slotStart && end > slotStart && start < slotEnd;
+      })
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
   };
 
   const filteredAppointments = appointments.filter(appt => {
@@ -219,9 +257,6 @@ export default function Agenda() {
 
   const goToToday = () => setSelectedDate(new Date());
 
-  const getDeptLabel = (value: string) => DEPARTMENTS.find(d => d.value === value)?.label || value;
-  const getDeptBadge = (dept: string) => DEPARTMENT_BADGES[dept] || DEPARTMENT_BADGES.general;
-
   const filteredUsersForAssign = tenantUsers.filter(u => {
     if (!employeeSearch) return true;
     const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
@@ -246,7 +281,7 @@ export default function Agenda() {
 
     try {
       await appointmentsService.update(selectedAppointment.id, {
-        employee_id: assignEmployeeId || null
+        employee_id: assignEmployeeId || undefined
       });
       showSuccess('Empleado asignado');
       setShowAssignModal(false);
@@ -263,7 +298,7 @@ export default function Agenda() {
     }
   };
 
-  const handleUpdateStatus = async (appointment: AppointmentWithDetails, status: string) => {
+  const handleUpdateStatus = async (appointment: AppointmentWithDetails, status: AppointmentWithDetails['status']) => {
     try {
       await appointmentsService.updateStatus(appointment.id, status);
       showSuccess('Estado actualizado');
@@ -308,9 +343,9 @@ export default function Agenda() {
     setShowAssignModal(true);
   };
 
-  const openNewAppointmentModal = (date: Date, hour: number) => {
+  const openNewAppointmentModal = (date: Date, hour: number, minute = 0) => {
     const scheduledAt = new Date(date);
-    scheduledAt.setHours(hour, 0, 0, 0);
+    scheduledAt.setHours(hour, minute, 0, 0);
     const localDateTime = new Date(scheduledAt.getTime() - scheduledAt.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 16);
@@ -358,12 +393,80 @@ export default function Agenda() {
     }
   };
 
-  const getAppointmentsForHour = (hour: number, day?: Date) => {
-    const targetDate = day || selectedDate;
-    return filteredAppointments.filter(appt => {
-      const apptDate = new Date(appt.scheduled_at);
-      return apptDate.getHours() === hour && isSameDay(apptDate, targetDate);
-    });
+  const renderTimeGrid = (days: Date[]) => {
+    const timeSlots = getTimeSlots();
+    const gridColumns = days.length === 1 ? 'grid-cols-[80px_1fr]' : 'grid-cols-[80px_repeat(7,1fr)]';
+
+    return (
+      <div className="bg-white rounded-lg border overflow-auto">
+        <div className={`grid ${gridColumns} min-w-[900px]`}>
+          <div className="bg-gray-50 border-b p-2"></div>
+          {days.map(day => (
+            <div
+              key={day.toISOString()}
+              className={`border-b border-l p-2 text-center text-sm ${
+                isSameDay(day, new Date()) ? 'bg-blue-50 font-semibold' : ''
+              }`}
+            >
+              <div className="text-xs text-gray-500 capitalize">
+                {day.toLocaleDateString('es-MX', { weekday: 'short' })}
+              </div>
+              <div>{day.getDate()}</div>
+            </div>
+          ))}
+
+          {timeSlots.map(slot => {
+            return (
+              <div key={`slot-${slot.label}`} className="contents">
+                <div className="bg-gray-50 border-b px-2 py-1 text-xs text-gray-500" style={{ height: SLOT_HEIGHT_PX }}>
+                  {slot.label}
+                </div>
+                {days.map(day => {
+                  const slotStart = getSlotStart(day, slot.hour, slot.minute);
+                  const slotEnd = getSlotEnd(slotStart);
+                  const startingAppointments = getAppointmentsStartingInSlot(slotStart, slotEnd);
+                  const blockingAppointment = getBlockingAppointmentForSlot(slotStart, slotEnd);
+                  const isEmpty = startingAppointments.length === 0 && !blockingAppointment;
+
+                  return (
+                    <div
+                      key={`${day.toISOString()}-${slot.label}`}
+                      className={`border-b border-l p-1 transition-colors ${isEmpty ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'}`}
+                      style={{ height: SLOT_HEIGHT_PX }}
+                      onClick={() => {
+                        if (isEmpty) {
+                          openNewAppointmentModal(day, slot.hour, slot.minute);
+                        }
+                      }}
+                    >
+                      {startingAppointments.length > 0 ? (
+                        <div className="space-y-1 overflow-hidden">
+                          {startingAppointments.slice(0, 2).map(appt => renderAppointmentCard(appt, true))}
+                          {startingAppointments.length > 2 && (
+                            <div className="text-[11px] text-gray-500 text-center">
+                              +{startingAppointments.length - 2} más
+                            </div>
+                          )}
+                        </div>
+                      ) : blockingAppointment ? (
+                        <div className="h-full rounded border border-dashed border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700 flex flex-col justify-center overflow-hidden">
+                          <div className="font-semibold truncate">{blockingAppointment.pet?.name || 'Ocupado'}</div>
+                          <div className="truncate">Bloqueado hasta {new Date(getAppointmentRange(blockingAppointment).end).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <Plus className="w-4 h-4 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   const getAppointmentsByEmployee = () => {
@@ -387,7 +490,6 @@ export default function Agenda() {
   };
 
   const renderUserSelector = (
-    value: string,
     search: string,
     setSearch: (s: string) => void,
     showDropdown: boolean,
@@ -509,11 +611,17 @@ export default function Agenda() {
         onClick={(e) => { e.stopPropagation(); openAssignModal(appointment); }}
       >
         <div className="font-medium truncate">{appointment.pet?.name || 'Sin mascota'}</div>
+        {compact && (
+          <div className="mt-0.5 text-[11px] opacity-75 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {time} · {appointment.duration_minutes || 30} min
+          </div>
+        )}
         {!compact && (
           <>
-            {appointment.pet?.owner && (
+            {appointment.owner && (
               <div className="text-xs opacity-75">
-                {appointment.pet.owner.first_name} {appointment.pet.owner.last_name}
+                {appointment.owner.first_name} {appointment.owner.last_name}
               </div>
             )}
             <div className="text-xs opacity-75">{appointment.service?.name}</div>
@@ -627,86 +735,11 @@ export default function Agenda() {
       );
     }
 
-    return (
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="grid grid-cols-[80px_1fr] divide-x">
-          <div className="bg-gray-50">
-            {HOURS.map(hour => (
-              <div key={hour} className="h-20 border-b px-2 py-1 text-xs text-gray-500">
-                {hour.toString().padStart(2, '0')}:00
-              </div>
-            ))}
-          </div>
-          <div>
-            {HOURS.map(hour => {
-              const hourAppointments = getAppointmentsForHour(hour);
-              return (
-                <div
-                  key={hour}
-                  className="h-20 border-b p-1 flex gap-1 flex-wrap cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => openNewAppointmentModal(selectedDate, hour)}
-                >
-                  {hourAppointments.map(appt => renderAppointmentCard(appt, true))}
-                  {hourAppointments.length === 0 && (
-                    <div className="w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <Plus className="w-5 h-5 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
+    return renderTimeGrid([selectedDate]);
   };
 
   const renderWeekView = () => {
-    const weekDays = getWeekDays();
-
-    return (
-      <div className="bg-white rounded-lg border overflow-auto">
-        <div className="grid grid-cols-[80px_repeat(7,1fr)] min-w-[900px]">
-          <div className="bg-gray-50 border-b p-2"></div>
-          {weekDays.map(day => (
-            <div
-              key={day.toISOString()}
-              className={`border-b border-l p-2 text-center text-sm ${
-                isSameDay(day, new Date()) ? 'bg-blue-50 font-semibold' : ''
-              }`}
-            >
-              <div className="text-xs text-gray-500">
-                {day.toLocaleDateString('es-MX', { weekday: 'short' })}
-              </div>
-              <div>{day.getDate()}</div>
-            </div>
-          ))}
-
-          {HOURS.map(hour => (
-            <div key={`row-${hour}`} className="contents">
-              <div className="bg-gray-50 border-b px-2 py-1 text-xs text-gray-500 h-16">
-                {hour.toString().padStart(2, '0')}:00
-              </div>
-              {weekDays.map(day => {
-                const dayAppointments = getAppointmentsForHour(hour, day);
-                return (
-                  <div
-                    key={`${day.toISOString()}-${hour}`}
-                    className="border-b border-l p-1 h-16 overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => openNewAppointmentModal(day, hour)}
-                  >
-                    {dayAppointments.slice(0, 2).map(appt => renderAppointmentCard(appt, true))}
-                    {dayAppointments.length > 2 && (
-                      <div className="text-xs text-gray-500 text-center">+{dayAppointments.length - 2} mas</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return renderTimeGrid(getWeekDays());
   };
 
   const renderListView = () => (
@@ -737,7 +770,7 @@ export default function Agenda() {
                   <td className="px-4 py-3">
                     <div className="font-medium text-sm">{appointment.pet?.name}</div>
                     <div className="text-xs text-gray-500">
-                      {appointment.pet?.owner?.first_name} {appointment.pet?.owner?.last_name}
+                      {appointment.owner?.first_name} {appointment.owner?.last_name}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">{appointment.service?.name}</td>
@@ -1001,9 +1034,9 @@ export default function Agenda() {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900">{selectedAppointment.pet?.name}</div>
-                  {selectedAppointment.pet?.owner && (
+                  {selectedAppointment.owner && (
                     <div className="text-sm text-gray-600">
-                      Dueno: {selectedAppointment.pet.owner.first_name} {selectedAppointment.pet.owner.last_name}
+                      Dueno: {selectedAppointment.owner.first_name} {selectedAppointment.owner.last_name}
                     </div>
                   )}
                   <div className="text-sm text-gray-600">{selectedAppointment.service?.name}</div>
@@ -1025,7 +1058,6 @@ export default function Agenda() {
                 Usuario asignado
               </label>
               {renderUserSelector(
-                assignEmployeeId,
                 employeeSearch,
                 setEmployeeSearch,
                 showEmployeeDropdown,
@@ -1132,7 +1164,6 @@ export default function Agenda() {
               Usuario asignado
             </label>
             {renderUserSelector(
-              newAppointmentData.employee_id,
               newEmployeeSearch,
               setNewEmployeeSearch,
               showNewEmployeeDropdown,
