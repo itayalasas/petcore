@@ -116,6 +116,17 @@ export default function Agenda() {
   }, [currentTenant]);
 
   useEffect(() => {
+    const handleAppointmentsChanged = () => {
+      if (currentTenant) {
+        loadData();
+      }
+    };
+
+    window.addEventListener('appointments:changed', handleAppointmentsChanged);
+    return () => window.removeEventListener('appointments:changed', handleAppointmentsChanged);
+  }, [currentTenant]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (employeeDropdownRef.current && !employeeDropdownRef.current.contains(e.target as Node)) {
         setShowEmployeeDropdown(false);
@@ -238,6 +249,7 @@ export default function Agenda() {
       setAssignEmployeeId('');
       setEmployeeSearch('');
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
     } catch (error) {
       console.error('Error assigning employee:', error);
       showError('Error al asignar empleado');
@@ -251,6 +263,7 @@ export default function Agenda() {
       await appointmentsService.updateStatus(appointment.id, status);
       showSuccess('Estado actualizado');
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
     } catch (error) {
       console.error('Error updating status:', error);
       showError('Error al actualizar estado');
@@ -293,9 +306,12 @@ export default function Agenda() {
   const openNewAppointmentModal = (date: Date, hour: number) => {
     const scheduledAt = new Date(date);
     scheduledAt.setHours(hour, 0, 0, 0);
+    const localDateTime = new Date(scheduledAt.getTime() - scheduledAt.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
 
     setNewAppointmentData({
-      scheduled_at: scheduledAt.toISOString().slice(0, 16),
+      scheduled_at: localDateTime,
       pet_id: '',
       owner_id: '',
       service_id: '',
@@ -328,6 +344,7 @@ export default function Agenda() {
       showSuccess('Cita creada');
       setShowNewAppointmentModal(false);
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
     } catch (error) {
       console.error('Error creating appointment:', error);
       showError('Error al crear cita');

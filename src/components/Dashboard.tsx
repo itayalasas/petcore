@@ -10,6 +10,9 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTenant } from '../contexts/TenantContext';
+import { appointmentsService } from '../services/servicesAppointments';
 
 const kpis = [
   {
@@ -50,7 +53,7 @@ const kpis = [
   },
 ] as const;
 
-const todayAppointments = [
+const fallbackTodayAppointments = [
   { time: '09:00', pet: 'Max', service: 'Consulta general', owner: 'Juan Pérez', status: 'completed' },
   { time: '10:30', pet: 'Luna', service: 'Vacunación', owner: 'María García', status: 'in-progress' },
   { time: '11:00', pet: 'Rocky', service: 'Baño y peluquería', owner: 'Carlos Ruiz', status: 'pending' },
@@ -84,6 +87,62 @@ const alertClasses = {
 } as const;
 
 export default function Dashboard() {
+  const { currentTenant } = useTenant();
+  const [todayAppointments, setTodayAppointments] = useState(fallbackTodayAppointments);
+
+  useEffect(() => {
+    const loadTodayAppointments = async () => {
+      if (!currentTenant) {
+        setTodayAppointments(fallbackTodayAppointments);
+        return;
+      }
+
+      try {
+        const allAppointments = await appointmentsService.getAll(currentTenant.id);
+        const now = new Date();
+        const liveTodayAppointments = allAppointments
+          .filter((appointment) => {
+            const appointmentDate = new Date(appointment.scheduled_at);
+            return (
+              appointmentDate.getFullYear() === now.getFullYear() &&
+              appointmentDate.getMonth() === now.getMonth() &&
+              appointmentDate.getDate() === now.getDate()
+            );
+          })
+          .sort((left, right) => new Date(left.scheduled_at).getTime() - new Date(right.scheduled_at).getTime())
+          .slice(0, 5)
+          .map((appointment) => {
+            const time = new Date(appointment.scheduled_at).toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+
+            return {
+              time,
+              pet: appointment.pet?.name || 'Sin mascota',
+              service: appointment.service?.name || appointment.reason || 'Cita',
+              owner: appointment.owner ? `${appointment.owner.first_name} ${appointment.owner.last_name}` : 'Sin propietario',
+              status: appointment.status === 'in_progress' ? 'in-progress' : appointment.status === 'completed' ? 'completed' : 'pending'
+            };
+          });
+
+        setTodayAppointments(liveTodayAppointments.length > 0 ? liveTodayAppointments : []);
+      } catch (error) {
+        console.error('Error loading dashboard appointments:', error);
+        setTodayAppointments(fallbackTodayAppointments);
+      }
+    };
+
+    void loadTodayAppointments();
+
+    const handleAppointmentsChanged = () => {
+      void loadTodayAppointments();
+    };
+
+    window.addEventListener('appointments:changed', handleAppointmentsChanged);
+    return () => window.removeEventListener('appointments:changed', handleAppointmentsChanged);
+  }, [currentTenant]);
+
   return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-8 text-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.9)]">
@@ -158,7 +217,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="space-y-3 p-6">
-            {todayAppointments.map((appointment) => (
+            {todayAppointments.length > 0 ? todayAppointments.map((appointment) => (
               <div
                 key={`${appointment.time}-${appointment.pet}`}
                 className="flex flex-col gap-4 rounded-[24px] border border-slate-100 bg-slate-50/80 p-4 transition-colors hover:bg-emerald-50/60 md:flex-row md:items-center"
@@ -185,7 +244,11 @@ export default function Dashboard() {
                       : 'Pendiente'}
                 </span>
               </div>
-            ))}
+            )) : (
+              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                No hay citas para hoy.
+              </div>
+            )}
           </div>
         </div>
 
