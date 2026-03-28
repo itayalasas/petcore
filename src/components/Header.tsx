@@ -83,7 +83,7 @@ export default function Header({
 
     if (user) {
       setUserEmail(user.email || '');
-      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).single();
+      const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
       if (profile) {
         setUserName(profile.display_name || user.email || 'Usuario');
       }
