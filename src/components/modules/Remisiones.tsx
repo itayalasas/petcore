@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Send, Clock, CheckCircle, XCircle, AlertTriangle, User, Calendar, Filter, Plus, ArrowRight, FileText } from 'lucide-react';
+import { Send, Clock, CheckCircle, XCircle, AlertTriangle, User, Calendar, Filter, Plus, ArrowRight, FileText, Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { referralsService, ReferralWithDetails, Referral } from '../../services/cases';
@@ -49,6 +49,7 @@ export default function Remisiones() {
   const [filterUrgency, setFilterUrgency] = useState<string>('');
 
   const [showModal, setShowModal] = useState(false);
+  const [savingReferral, setSavingReferral] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReferral, setSelectedReferral] = useState<ReferralWithDetails | null>(null);
 
@@ -116,6 +117,8 @@ export default function Remisiones() {
       return;
     }
 
+    setSavingReferral(true);
+
     try {
       await referralsService.create(currentTenant.id, formData);
       showSuccess('Remision creada');
@@ -125,6 +128,8 @@ export default function Remisiones() {
     } catch (error) {
       console.error('Error creating referral:', error);
       showError('Error al crear remision');
+    } finally {
+      setSavingReferral(false);
     }
   };
 
@@ -484,9 +489,17 @@ export default function Remisiones() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              disabled={savingReferral}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              Crear remision
+              {savingReferral ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                'Crear remision'
+              )}
             </button>
           </div>
         </form>

@@ -1,5 +1,6 @@
 import { Plus, FileText, Activity, Calendar, Weight, Thermometer, Heart, Pill, Save, X, Search, Filter, ShoppingCart, DollarSign, Trash2, Stethoscope, ClipboardList, Syringe, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 import Table from '../ui/Table';
@@ -1597,10 +1598,19 @@ export default function Salud() {
               <button
                 onClick={handleSaveConsultation}
                 disabled={loading || !formData.pet_id || !formData.reason}
-                className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:from-teal-700 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:from-teal-700 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                <Save className="w-4 h-4 inline mr-2" />
-                {selectedConsultation ? 'Actualizar' : 'Guardar'} Consulta
+                {loading ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 inline" />
+                    {selectedConsultation ? 'Actualizar' : 'Guardar'} Consulta
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Plus, CreditCard as Edit2, Trash2, Save, X, Check, Users } from 'lucide-react';
+import { Shield, Plus, CreditCard as Edit2, Trash2, Save, X, Check, Users, Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { permissionsService, Permission, RoleWithPermissions } from '../../services/permissions';
 import Modal from '../ui/Modal';
@@ -342,10 +342,19 @@ export default function RolesPermissions() {
               <button
                 onClick={handleSaveRole}
                 disabled={loading || !formData.name}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <Save className="w-4 h-4 inline mr-2" />
-                {editingRole ? 'Actualizar' : 'Crear'} Rol
+                {loading ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 inline" />
+                    {editingRole ? 'Actualizar' : 'Crear'} Rol
+                  </>
+                )}
               </button>
             </div>
           </div>

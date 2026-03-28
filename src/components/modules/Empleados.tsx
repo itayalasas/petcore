@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Plus, CreditCard as Edit2, Trash2, Calendar, Clock, Briefcase, Phone, Mail, Search } from 'lucide-react';
+import { User, Plus, CreditCard as Edit2, Trash2, Calendar, Clock, Briefcase, Phone, Mail, Search, Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { employeesService, Employee, EmployeeWithDetails, EmployeeSchedule } from '../../services/employees';
@@ -46,6 +46,9 @@ export default function Empleados() {
   const [showServicesModal, setShowServicesModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeWithDetails | null>(null);
+  const [savingEmployee, setSavingEmployee] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [savingServices, setSavingServices] = useState(false);
 
   const [formData, setFormData] = useState({
     employee_code: '',
@@ -104,6 +107,8 @@ export default function Empleados() {
       return;
     }
 
+    setSavingEmployee(true);
+
     try {
       if (editingEmployee) {
         await employeesService.update(editingEmployee.id, {
@@ -125,11 +130,15 @@ export default function Empleados() {
     } catch (error) {
       console.error('Error saving employee:', error);
       showError('Error al guardar empleado');
+    } finally {
+      setSavingEmployee(false);
     }
   };
 
   const handleSaveSchedule = async () => {
     if (!editingEmployee || !currentTenant) return;
+
+    setSavingSchedule(true);
 
     try {
       const schedules: Omit<EmployeeSchedule, 'id' | 'tenant_id' | 'employee_id' | 'created_at' | 'updated_at'>[] = [];
@@ -153,11 +162,15 @@ export default function Empleados() {
     } catch (error) {
       console.error('Error saving schedule:', error);
       showError('Error al guardar horario');
+    } finally {
+      setSavingSchedule(false);
     }
   };
 
   const handleSaveServices = async () => {
     if (!editingEmployee || !currentTenant) return;
+
+    setSavingServices(true);
 
     try {
       await employeesService.assignServices(currentTenant.id, editingEmployee.id, selectedServices, primaryService);
@@ -167,6 +180,8 @@ export default function Empleados() {
     } catch (error) {
       console.error('Error saving services:', error);
       showError('Error al asignar servicios');
+    } finally {
+      setSavingServices(false);
     }
   };
 
@@ -540,9 +555,17 @@ export default function Empleados() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              disabled={savingEmployee}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              {editingEmployee ? 'Guardar cambios' : 'Crear empleado'}
+              {savingEmployee ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>{editingEmployee ? 'Guardar cambios' : 'Crear empleado'}</>
+              )}
             </button>
           </div>
         </form>
@@ -606,9 +629,17 @@ export default function Empleados() {
             </button>
             <button
               onClick={handleSaveSchedule}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              disabled={savingSchedule}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              Guardar horario
+              {savingSchedule ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar horario'
+              )}
             </button>
           </div>
         </div>
@@ -671,9 +702,17 @@ export default function Empleados() {
             </button>
             <button
               onClick={handleSaveServices}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              disabled={savingServices}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              Guardar servicios
+              {savingServices ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar servicios'
+              )}
             </button>
           </div>
         </div>
