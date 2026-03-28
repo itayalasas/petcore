@@ -142,7 +142,7 @@ export default function Ordenes() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-5 h-5 text-amber-600" />
@@ -154,7 +154,7 @@ export default function Ordenes() {
           <p className="text-sm text-gray-600">Preparando</p>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <Truck className="w-5 h-5 text-blue-600" />
@@ -166,7 +166,7 @@ export default function Ordenes() {
           <p className="text-sm text-gray-600">En camino</p>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -178,7 +178,7 @@ export default function Ordenes() {
           <p className="text-sm text-gray-600">Entregados hoy</p>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
               <Package className="w-5 h-5 text-primary-600" />
@@ -191,7 +191,7 @@ export default function Ordenes() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60">
         <Filters
           filters={filters}
           searchPlaceholder="Buscar por número de orden o cliente..."
@@ -216,19 +216,19 @@ export default function Ordenes() {
                 content: (
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-2xl bg-slate-50 p-4">
                         <p className="text-xs text-gray-500 mb-1">Cliente</p>
                         <p className="font-semibold text-gray-900">{selectedOrder.customer}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-2xl bg-slate-50 p-4">
                         <p className="text-xs text-gray-500 mb-1">Fecha</p>
                         <p className="font-semibold text-gray-900">{selectedOrder.date}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-2xl bg-slate-50 p-4">
                         <p className="text-xs text-gray-500 mb-1">Estado</p>
                         <Badge variant="info">{selectedOrder.status}</Badge>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-2xl bg-slate-50 p-4">
                         <p className="text-xs text-gray-500 mb-1">Total</p>
                         <p className="text-xl font-bold text-gray-900">{selectedOrder.total}</p>
                       </div>
@@ -239,7 +239,7 @@ export default function Ordenes() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gray-200 rounded"></div>
+                            <div className="h-12 w-12 rounded-2xl bg-slate-200"></div>
                             <div>
                               <p className="font-medium text-gray-900">Alimento Premium 15kg</p>
                               <p className="text-sm text-gray-500">Cantidad: 2</p>
@@ -259,7 +259,7 @@ export default function Ordenes() {
                 content: (
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-green-100">
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
                       </div>
                       <div className="flex-1">
@@ -268,7 +268,7 @@ export default function Ordenes() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-100">
                         <Clock className="w-5 h-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
