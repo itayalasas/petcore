@@ -21,59 +21,48 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', f
     xl: 'max-w-6xl',
   };
 
-  const shellClasses = appearance === 'dark'
-    ? 'bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl'
-    : 'bg-white rounded-xl shadow-2xl';
+  const isDark = appearance === 'dark';
 
-  const headerClasses = appearance === 'dark'
-    ? 'flex items-center justify-between px-6 py-4 border-b border-slate-800'
-    : 'flex items-center justify-between px-6 py-4 border-b border-gray-200';
+  const shellClasses = isDark
+    ? 'bg-slate-950 border border-white/10 rounded-[32px] shadow-[0_32px_90px_-40px_rgba(15,23,42,0.9)]'
+    : 'bg-white border border-white/70 rounded-[32px] shadow-[0_32px_90px_-40px_rgba(15,23,42,0.45)]';
 
-  const titleClasses = appearance === 'dark'
-    ? 'text-lg font-semibold text-white'
-    : 'text-lg font-semibold text-gray-900';
+  const headerClasses = isDark
+    ? 'flex items-center justify-between gap-4 px-6 py-5 border-b border-white/10'
+    : 'flex items-center justify-between gap-4 px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-emerald-50 via-white to-cyan-50';
 
-  const closeButtonClasses = appearance === 'dark'
-    ? 'p-2 hover:bg-slate-800 rounded-lg transition-colors'
-    : 'p-2 hover:bg-gray-100 rounded-lg transition-colors';
+  const titleClasses = isDark ? 'text-lg font-semibold text-white' : 'text-lg font-bold text-slate-950';
 
-  const closeIconClasses = appearance === 'dark'
-    ? 'w-5 h-5 text-slate-400'
-    : 'w-5 h-5 text-gray-500';
+  const closeButtonClasses = isDark
+    ? 'rounded-full border border-white/10 p-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white'
+    : 'rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900';
 
-  const bodyClasses = appearance === 'dark'
-    ? 'px-6 py-6 max-h-[calc(100vh-200px)] overflow-y-auto bg-slate-950'
-    : 'px-6 py-6 max-h-[calc(100vh-200px)] overflow-y-auto';
+  const closeIconClasses = 'h-5 w-5';
 
-  const footerClasses = appearance === 'dark'
-    ? 'px-6 py-4 border-t border-slate-800 bg-slate-900 rounded-b-2xl'
-    : 'px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-xl';
+  const bodyClasses = isDark
+    ? 'max-h-[calc(100vh-220px)] overflow-y-auto bg-slate-950 px-6 py-6'
+    : 'max-h-[calc(100vh-220px)] overflow-y-auto bg-white px-6 py-6';
+
+  const footerClasses = isDark
+    ? 'rounded-b-[32px] border-t border-white/10 bg-slate-900 px-6 py-4'
+    : 'rounded-b-[32px] border-t border-slate-100 bg-slate-50 px-6 py-4';
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose}></div>
+        <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-md transition-opacity" onClick={onClose} />
 
         <div className={`relative w-full ${sizeClasses[size]} transform transition-all ${shellClasses}`}>
           <div className={headerClasses}>
             <h3 className={titleClasses}>{title}</h3>
-            <button
-              onClick={onClose}
-              className={closeButtonClasses}
-            >
+            <button onClick={onClose} className={closeButtonClasses}>
               <X className={closeIconClasses} />
             </button>
           </div>
 
-          <div className={bodyClasses}>
-            {children}
-          </div>
+          <div className={bodyClasses}>{children}</div>
 
-          {footer && (
-            <div className={footerClasses}>
-              {footer}
-            </div>
-          )}
+          {footer && <div className={footerClasses}>{footer}</div>}
         </div>
       </div>
     </div>

@@ -28,7 +28,7 @@ export default function Select({
       defaultValue={defaultValue}
       onChange={(e) => onChange?.(e.target.value)}
       disabled={disabled}
-      className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 ${className}`}
+      className={`w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm shadow-white/50 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100 disabled:text-slate-400 ${className}`}
     >
       {placeholder && (
         <option value="" disabled>
