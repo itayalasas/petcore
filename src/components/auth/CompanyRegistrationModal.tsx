@@ -1,5 +1,18 @@
 import { useState } from 'react';
-import { X, Building2, Mail, Lock, User, Briefcase, Users, Loader, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  Briefcase,
+  Building2,
+  Check,
+  Eye,
+  EyeOff,
+  Loader,
+  Lock,
+  Mail,
+  PawPrint,
+  User,
+  X,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { isValidSlug, getTenantUrl } from '../../utils/tenantDetection';
 
@@ -28,6 +41,30 @@ interface PlanData {
   plan: 'basic' | 'professional' | 'enterprise';
 }
 
+const plans = [
+  {
+    value: 'basic',
+    name: 'Basic',
+    price: 'Gratis',
+    period: '30 días',
+    features: ['5 usuarios', '100 mascotas', 'Soporte por email', 'Funcionalidades básicas'],
+  },
+  {
+    value: 'professional',
+    name: 'Professional',
+    price: '$49',
+    period: '/mes',
+    features: ['50 usuarios', '1000 mascotas', 'Soporte prioritario', 'Todas las funcionalidades', 'Integraciones API'],
+  },
+  {
+    value: 'enterprise',
+    name: 'Enterprise',
+    price: 'Personalizado',
+    period: '',
+    features: ['Usuarios ilimitados', 'Mascotas ilimitadas', 'Soporte 24/7', 'Funcionalidades premium', 'SLA garantizado'],
+  },
+] as const;
+
 export default function CompanyRegistrationModal({ onClose, onSuccess }: CompanyRegistrationModalProps) {
   const [step, setStep] = useState<RegistrationStep>('company');
   const [loading, setLoading] = useState(false);
@@ -39,22 +76,23 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
     name: '',
     slug: '',
     industry: '',
-    size: ''
+    size: '',
   });
 
   const [adminData, setAdminData] = useState<AdminData>({
     fullName: '',
     email: '',
     password: '',
-    position: ''
+    position: '',
   });
 
   const [planData, setPlanData] = useState<PlanData>({
-    plan: 'basic'
+    plan: 'basic',
   });
 
   const generateSlug = (name: string) => {
-    const slug = name.toLowerCase()
+    const slug = name
+      .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
@@ -70,7 +108,8 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
   };
 
   const handleSlugChange = (slug: string) => {
-    const sanitizedSlug = slug.toLowerCase()
+    const sanitizedSlug = slug
+      .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9-]+/g, '');
@@ -118,11 +157,7 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
     if (step === 'company') {
       setLoading(true);
       try {
-        const { data: existingTenant } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('slug', companyData.slug)
-          .maybeSingle();
+        const { data: existingTenant } = await supabase.from('tenants').select('id').eq('slug', companyData.slug).maybeSingle();
 
         if (existingTenant) {
           setError('Este identificador ya está en uso. Por favor elige otro.');
@@ -154,9 +189,9 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
         options: {
           data: {
             display_name: adminData.fullName,
-            position: adminData.position
-          }
-        }
+            position: adminData.position,
+          },
+        },
       });
 
       if (signUpError) throw signUpError;
@@ -165,10 +200,10 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
 
       await supabase.auth.setSession({
         access_token: authData.session.access_token,
-        refresh_token: authData.session.refresh_token
+        refresh_token: authData.session.refresh_token,
       });
 
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const { data: registrationResult, error: registrationError } = await supabase.rpc('register_company', {
         p_user_id: authData.user.id,
@@ -178,7 +213,7 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
         p_user_email: adminData.email,
         p_user_display_name: adminData.fullName,
         p_industry: companyData.industry,
-        p_company_size: companyData.size
+        p_company_size: companyData.size,
       });
 
       if (registrationError) throw registrationError;
@@ -188,7 +223,6 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
       setTimeout(() => {
         onSuccess();
       }, 2000);
-
     } catch (err: any) {
       console.error('Registration error:', err);
       setError(err.message || 'Error al crear la organización');
@@ -204,19 +238,19 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
 
   if (step === 'complete') {
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Check className="w-10 h-10 text-white" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md">
+        <div className="w-full max-w-md overflow-hidden rounded-[32px] border border-white/60 bg-white p-8 text-center shadow-[0_32px_90px_-40px_rgba(15,23,42,0.6)]">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
+            <Check className="h-10 w-10 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Organización Creada</h2>
-          <p className="text-slate-300 mb-6">
-            Tu empresa <strong className="text-white">{companyData.name}</strong> ha sido registrada exitosamente.
+          <h2 className="mt-6 text-3xl font-black tracking-tight text-slate-950">Organización creada</h2>
+          <p className="mt-4 text-sm leading-7 text-slate-600">
+            Tu empresa <strong className="text-slate-900">{companyData.name}</strong> ha sido registrada exitosamente.
             Redirigiendo al panel de configuración...
           </p>
-          <div className="flex items-center justify-center gap-2">
-            <Loader className="w-5 h-5 text-cyan-500 animate-spin" />
-            <span className="text-slate-400 text-sm">Preparando tu espacio de trabajo</span>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+            <Loader className="h-4 w-4 animate-spin" />
+            Preparando tu espacio de trabajo
           </div>
         </div>
       </div>
@@ -226,373 +260,373 @@ export default function CompanyRegistrationModal({ onClose, onSuccess }: Company
   const steps = [
     { id: 'company', label: 'Empresa', icon: Building2 },
     { id: 'admin', label: 'Administrador', icon: User },
-    { id: 'plan', label: 'Plan', icon: Briefcase }
+    { id: 'plan', label: 'Plan', icon: Briefcase },
   ];
 
-  const currentStepIndex = steps.findIndex(s => s.id === step);
+  const currentStepIndex = steps.findIndex((item) => item.id === step);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full p-8 my-8 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/65 p-4 backdrop-blur-md">
+      <div className="mx-auto my-8 w-full max-w-2xl overflow-hidden rounded-[36px] border border-white/60 bg-white shadow-[0_32px_90px_-40px_rgba(15,23,42,0.6)]">
+        <div className="relative border-b border-slate-100 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 px-8 pb-8 pt-10">
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full border border-slate-200 bg-white/90 p-2 text-slate-500 transition-colors hover:text-slate-900"
+          >
+            <X className="h-5 w-5" />
+          </button>
 
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">Registra tu Empresa</h2>
-          <p className="text-slate-400">Sistema SaaS Multi-Tenant - Completa el registro en 3 pasos</p>
-        </div>
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-lg shadow-emerald-500/20">
+              <PawPrint className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-black tracking-tight text-slate-950">Registra tu empresa</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Onboarding profesional en 3 pasos para tu operación pet.</p>
+            </div>
+          </div>
 
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {steps.map((s, index) => {
-              const Icon = s.icon;
-              const isActive = s.id === step;
+          <div className="mt-8 grid gap-3 md:grid-cols-3">
+            {steps.map((item, index) => {
+              const Icon = item.icon;
+              const isActive = item.id === step;
               const isCompleted = index < currentStepIndex;
 
               return (
-                <div key={s.id} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center flex-1">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                      isActive
-                        ? 'border-cyan-500 bg-cyan-500/20'
-                        : isCompleted
-                        ? 'border-green-500 bg-green-500/20'
-                        : 'border-slate-600 bg-slate-800'
-                    }`}>
-                      <Icon className={`w-6 h-6 ${
-                        isActive ? 'text-cyan-400' : isCompleted ? 'text-green-400' : 'text-slate-500'
-                      }`} />
+                <div
+                  key={item.id}
+                  className={`rounded-3xl border px-4 py-4 ${
+                    isActive
+                      ? 'border-emerald-200 bg-white shadow-sm'
+                      : isCompleted
+                        ? 'border-emerald-100 bg-emerald-50'
+                        : 'border-slate-200 bg-white/70'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                        isActive
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : isCompleted
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <span className={`text-xs mt-2 font-medium ${
-                      isActive ? 'text-cyan-400' : isCompleted ? 'text-green-400' : 'text-slate-500'
-                    }`}>
-                      {s.label}
-                    </span>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Paso {index + 1}</p>
+                      <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                    </div>
                   </div>
-                  {index < steps.length - 1 && (
-                    <div className={`h-0.5 flex-1 mx-2 -mt-6 ${
-                      isCompleted ? 'bg-green-500' : 'bg-slate-700'
-                    }`}></div>
-                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={(e) => { e.preventDefault(); handleNextStep(); }} className="space-y-6">
-          {step === 'company' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Nombre de la Empresa *
-                </label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                  <input
-                    type="text"
-                    required
-                    value={companyData.name}
-                    onChange={(e) => generateSlug(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    placeholder="Ej: Veterinaria Central"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Identificador Único (URL) *
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    value={companyData.slug}
-                    onChange={(e) => handleSlugChange(e.target.value)}
-                    className={`w-full px-4 py-3 bg-slate-800 border ${
-                      slugError ? 'border-red-500' : 'border-slate-700'
-                    } rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 ${
-                      slugError ? 'focus:ring-red-500' : 'focus:ring-cyan-500'
-                    } focus:border-transparent`}
-                    placeholder="vet-central"
-                    pattern="[a-z0-9\-]+"
-                  />
-                </div>
-                {companyData.slug && !slugError && (
-                  <div className="mt-2 p-2 bg-green-500/10 border border-green-500/30 rounded text-xs text-green-400 flex items-center gap-2">
-                    <Check className="w-3 h-3" />
-                    <span>Tu URL será: <strong>{getTenantUrl(companyData.slug)}</strong></span>
-                  </div>
-                )}
-                {slugError && (
-                  <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400 flex items-center gap-2">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>{slugError}</span>
-                  </div>
-                )}
-                <p className="text-xs text-slate-500 mt-1">Solo letras minúsculas, números y guiones (3-63 caracteres)</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Industria / Sector *
-                </label>
-                <select
-                  required
-                  value={companyData.industry}
-                  onChange={(e) => setCompanyData({ ...companyData, industry: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                >
-                  <option value="">Selecciona una industria</option>
-                  <option value="veterinary">Clínica Veterinaria</option>
-                  <option value="pet-shop">Tienda de Mascotas</option>
-                  <option value="grooming">Peluquería / Grooming</option>
-                  <option value="hotel">Hotel para Mascotas</option>
-                  <option value="daycare">Guardería</option>
-                  <option value="rescue">Rescate Animal</option>
-                  <option value="other">Otro</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Tamaño de la Empresa *
-                </label>
-                <select
-                  required
-                  value={companyData.size}
-                  onChange={(e) => setCompanyData({ ...companyData, size: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                >
-                  <option value="">Selecciona el tamaño</option>
-                  <option value="1-5">1-5 empleados</option>
-                  <option value="6-10">6-10 empleados</option>
-                  <option value="11-25">11-25 empleados</option>
-                  <option value="26-50">26-50 empleados</option>
-                  <option value="51+">51+ empleados</option>
-                </select>
-              </div>
-            </>
+        <div className="p-8">
+          {error && (
+            <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <p className="text-sm font-medium text-rose-700">{error}</p>
+            </div>
           )}
 
-          {step === 'admin' && (
-            <>
-              <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4 mb-6">
-                <p className="text-sm text-cyan-300">
-                  <strong>Administrador Principal:</strong> Esta persona tendrá acceso completo para gestionar usuarios, configuración y suscripciones.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Nombre Completo *
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                  <input
-                    type="text"
-                    required
-                    value={adminData.fullName}
-                    onChange={(e) => setAdminData({ ...adminData, fullName: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    placeholder="Juan Pérez"
-                  />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleNextStep();
+            }}
+            className="space-y-6"
+          >
+            {step === 'company' && (
+              <>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Nombre de la empresa *</label>
+                  <div className="relative">
+                    <Building2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={companyData.name}
+                      onChange={(e) => generateSlug(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      placeholder="Ej: Veterinaria Central"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Email Corporativo *
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                  <input
-                    type="email"
-                    required
-                    value={adminData.email}
-                    onChange={(e) => setAdminData({ ...adminData, email: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    placeholder="admin@empresa.com"
-                  />
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Identificador único (URL) *</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={companyData.slug}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      className={`w-full rounded-2xl border bg-slate-50 px-4 py-3.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
+                        slugError
+                          ? 'border-rose-300 focus:border-rose-300 focus:ring-rose-200'
+                          : 'border-slate-200 focus:border-emerald-300 focus:ring-emerald-200'
+                      }`}
+                      placeholder="vet-central"
+                      pattern="[a-z0-9\-]+"
+                    />
+                  </div>
+                  {companyData.slug && !slugError && (
+                    <div className="mt-3 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      <Check className="h-4 w-4" />
+                      <span>
+                        Tu URL será: <strong>{getTenantUrl(companyData.slug)}</strong>
+                      </span>
+                    </div>
+                  )}
+                  {slugError && (
+                    <div className="mt-3 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{slugError}</span>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-slate-500">Solo letras minúsculas, números y guiones (3-63 caracteres)</p>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Cargo / Posición *
-                </label>
-                <div className="relative">
-                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                  <input
-                    type="text"
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Industria / sector *</label>
+                  <select
                     required
-                    value={adminData.position}
-                    onChange={(e) => setAdminData({ ...adminData, position: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    placeholder="Director, Gerente, etc."
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Contraseña *
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={adminData.password}
-                    onChange={(e) => setAdminData({ ...adminData, password: e.target.value })}
-                    className="w-full pl-11 pr-11 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                    placeholder="••••••••"
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                    value={companyData.industry}
+                    onChange={(e) => setCompanyData({ ...companyData, industry: e.target.value })}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+                    <option value="">Selecciona una industria</option>
+                    <option value="veterinary">Clínica Veterinaria</option>
+                    <option value="pet-shop">Tienda de Mascotas</option>
+                    <option value="grooming">Peluquería / Grooming</option>
+                    <option value="hotel">Hotel para Mascotas</option>
+                    <option value="daycare">Guardería</option>
+                    <option value="rescue">Rescate Animal</option>
+                    <option value="other">Otro</option>
+                  </select>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Mínimo 6 caracteres</p>
-              </div>
-            </>
-          )}
 
-          {step === 'plan' && (
-            <>
-              <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4 mb-6">
-                <h4 className="text-sm font-semibold text-cyan-400 mb-2">Selecciona tu Plan Inicial</h4>
-                <p className="text-sm text-slate-300">Puedes cambiar o actualizar tu plan en cualquier momento desde la configuración.</p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                {[
-                  {
-                    value: 'basic',
-                    name: 'Basic',
-                    price: 'Gratis',
-                    period: '30 días',
-                    features: ['5 usuarios', '100 mascotas', 'Soporte por email', 'Funcionalidades básicas']
-                  },
-                  {
-                    value: 'professional',
-                    name: 'Professional',
-                    price: '$49',
-                    period: '/mes',
-                    features: ['50 usuarios', '1000 mascotas', 'Soporte prioritario', 'Todas las funcionalidades', 'Integraciones API']
-                  },
-                  {
-                    value: 'enterprise',
-                    name: 'Enterprise',
-                    price: 'Personalizado',
-                    period: '',
-                    features: ['Usuarios ilimitados', 'Mascotas ilimitadas', 'Soporte 24/7', 'Funcionalidades premium', 'SLA garantizado']
-                  }
-                ].map((plan) => (
-                  <button
-                    key={plan.value}
-                    type="button"
-                    onClick={() => setPlanData({ plan: plan.value as any })}
-                    className={`p-6 rounded-xl border-2 transition-all text-left ${
-                      planData.plan === plan.value
-                        ? 'border-cyan-500 bg-cyan-500/10'
-                        : 'border-slate-700 bg-slate-800 hover:border-slate-600'
-                    }`}
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Tamaño de la empresa *</label>
+                  <select
+                    required
+                    value={companyData.size}
+                    onChange={(e) => setCompanyData({ ...companyData, size: e.target.value })}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold text-white">{plan.price}</span>
-                          <span className="text-slate-400 text-sm">{plan.period}</span>
+                    <option value="">Selecciona el tamaño</option>
+                    <option value="1-5">1-5 empleados</option>
+                    <option value="6-10">6-10 empleados</option>
+                    <option value="11-25">11-25 empleados</option>
+                    <option value="26-50">26-50 empleados</option>
+                    <option value="51+">51+ empleados</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {step === 'admin' && (
+              <>
+                <div className="rounded-3xl border border-cyan-200 bg-cyan-50 px-5 py-4">
+                  <p className="text-sm leading-6 text-cyan-800">
+                    <strong>Administrador principal:</strong> esta persona tendrá acceso completo para gestionar usuarios, configuración y suscripciones.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Nombre completo *</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={adminData.fullName}
+                      onChange={(e) => setAdminData({ ...adminData, fullName: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      placeholder="Juan Pérez"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Email corporativo *</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={adminData.email}
+                      onChange={(e) => setAdminData({ ...adminData, email: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      placeholder="admin@empresa.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Cargo / posición *</label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={adminData.position}
+                      onChange={(e) => setAdminData({ ...adminData, position: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      placeholder="Director, Gerente, etc."
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Contraseña *</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={adminData.password}
+                      onChange={(e) => setAdminData({ ...adminData, password: e.target.value })}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-12 text-slate-900 placeholder:text-slate-400 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      placeholder="••••••••"
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">Mínimo 6 caracteres</p>
+                </div>
+              </>
+            )}
+
+            {step === 'plan' && (
+              <>
+                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+                  <h4 className="text-sm font-semibold text-emerald-800">Selecciona tu plan inicial</h4>
+                  <p className="mt-1 text-sm leading-6 text-emerald-700">
+                    Puedes cambiar o actualizar tu plan en cualquier momento desde la configuración.
+                  </p>
+                </div>
+
+                <div className="grid gap-4">
+                  {plans.map((plan) => (
+                    <button
+                      key={plan.value}
+                      type="button"
+                      onClick={() => setPlanData({ plan: plan.value as PlanData['plan'] })}
+                      className={`rounded-[28px] border p-6 text-left transition-all ${
+                        planData.plan === plan.value
+                          ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/15'
+                          : 'border-slate-200 bg-slate-50 hover:border-emerald-200 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-xl font-bold">{plan.name}</h3>
+                          <div className="mt-2 flex items-end gap-2">
+                            <span className="text-3xl font-black">{plan.price}</span>
+                            <span className={`pb-1 text-sm ${planData.plan === plan.value ? 'text-slate-300' : 'text-slate-500'}`}>
+                              {plan.period}
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+                            planData.plan === plan.value
+                              ? 'border-white bg-white text-slate-950'
+                              : 'border-slate-300 text-transparent'
+                          }`}
+                        >
+                          <Check className="h-4 w-4" />
                         </div>
                       </div>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        planData.plan === plan.value
-                          ? 'border-cyan-500 bg-cyan-500'
-                          : 'border-slate-600'
-                      }`}>
-                        {planData.plan === plan.value && <Check className="w-4 h-4 text-white" />}
-                      </div>
-                    </div>
-                    <ul className="space-y-2">
-                      {plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-center gap-2 text-sm text-slate-300">
-                          <Check className="w-4 h-4 text-cyan-500 flex-shrink-0" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
-                ))}
-              </div>
+                      <ul className="mt-5 space-y-2">
+                        {plan.features.map((feature) => (
+                          <li
+                            key={feature}
+                            className={`flex items-center gap-2 text-sm ${planData.plan === plan.value ? 'text-slate-200' : 'text-slate-600'}`}
+                          >
+                            <Check className={`h-4 w-4 ${planData.plan === plan.value ? 'text-emerald-300' : 'text-emerald-600'}`} />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+                  ))}
+                </div>
 
-              <div className="mt-6 p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
-                <h4 className="text-sm font-semibold text-white mb-2">Resumen del Registro</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Empresa:</span>
-                    <span className="text-white font-medium">{companyData.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Administrador:</span>
-                    <span className="text-white font-medium">{adminData.fullName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Plan:</span>
-                    <span className="text-white font-medium">{planData.plan === 'basic' ? 'Basic' : planData.plan === 'professional' ? 'Professional' : 'Enterprise'}</span>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <h4 className="text-sm font-semibold text-slate-900">Resumen del registro</h4>
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-slate-500">Empresa:</span>
+                      <span className="font-semibold text-slate-900">{companyData.name}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-slate-500">Administrador:</span>
+                      <span className="font-semibold text-slate-900">{adminData.fullName}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-slate-500">Plan:</span>
+                      <span className="font-semibold text-slate-900">
+                        {planData.plan === 'basic' ? 'Basic' : planData.plan === 'professional' ? 'Professional' : 'Enterprise'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
-
-          <div className="flex items-center gap-4 pt-4">
-            {step !== 'company' && (
-              <button
-                type="button"
-                onClick={handleBackStep}
-                disabled={loading}
-                className="flex-1 py-3.5 border-2 border-slate-700 text-white rounded-lg font-semibold hover:border-slate-600 hover:bg-slate-800/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Anterior
-              </button>
+              </>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg font-semibold hover:from-cyan-600 hover:to-blue-700 transition-all shadow-lg shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader className="w-5 h-5 animate-spin" />
-                  {step === 'plan' ? 'Creando organización...' : 'Validando...'}
-                </>
-              ) : (
-                step === 'plan' ? 'Completar Registro' : 'Siguiente'
-              )}
-            </button>
-          </div>
-        </form>
 
-        <p className="text-xs text-slate-500 text-center mt-6">
-          Al registrarte, aceptas nuestros <a href="#" className="text-cyan-400 hover:underline">términos de servicio</a> y <a href="#" className="text-cyan-400 hover:underline">política de privacidad</a>
-        </p>
+            <div className="flex items-center gap-4 pt-4">
+              {step !== 'company' && (
+                <button
+                  type="button"
+                  onClick={handleBackStep}
+                  disabled={loading}
+                  className="flex-1 rounded-2xl border border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader className="h-5 w-5 animate-spin" />
+                    {step === 'plan' ? 'Creando organización...' : 'Validando...'}
+                  </>
+                ) : step === 'plan' ? (
+                  'Completar registro'
+                ) : (
+                  'Siguiente'
+                )}
+              </button>
+            </div>
+          </form>
+
+          <p className="mt-6 text-center text-xs leading-6 text-slate-500">
+            Al registrarte, aceptas nuestros{' '}
+            <a href="#" className="font-semibold text-emerald-700 hover:underline">
+              términos de servicio
+            </a>{' '}
+            y{' '}
+            <a href="#" className="font-semibold text-emerald-700 hover:underline">
+              política de privacidad
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

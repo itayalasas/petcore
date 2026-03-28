@@ -1,281 +1,363 @@
-import { ArrowRight, PawPrint, Users, Heart, Calendar, BarChart3, Shield, Zap, TrendingUp, Package, Mail, CreditCard } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  Calendar,
+  CheckCircle2,
+  CreditCard,
+  Heart,
+  Package,
+  PawPrint,
+  Shield,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 
 interface LandingPageProps {
   onRegisterCompany: () => void;
   onLogin: () => void;
 }
 
+const features = [
+  {
+    icon: PawPrint,
+    title: 'Gestión integral de mascotas',
+    description: 'Centraliza fichas clínicas, vacunas, antecedentes y seguimiento para cada paciente.',
+  },
+  {
+    icon: Users,
+    title: 'Operación multi-sede',
+    description: 'Administra equipos, sedes y organizaciones desde una sola plataforma segura.',
+  },
+  {
+    icon: Heart,
+    title: 'Atención veterinaria',
+    description: 'Organiza consultas, tratamientos y controles con una experiencia clara para tu equipo.',
+  },
+  {
+    icon: Calendar,
+    title: 'Agenda inteligente',
+    description: 'Coordina citas, recordatorios y disponibilidad para mantener la agenda siempre ordenada.',
+  },
+  {
+    icon: BarChart3,
+    title: 'Indicadores del negocio',
+    description: 'Visualiza ingresos, ocupación, servicios y desempeño con tableros accionables.',
+  },
+  {
+    icon: Shield,
+    title: 'Seguridad y trazabilidad',
+    description: 'Protege los datos clínicos y operativos con permisos, aislamiento y control de accesos.',
+  },
+  {
+    icon: Package,
+    title: 'Inventario conectado',
+    description: 'Controla productos, compras y stock sin salir del flujo operativo diario.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Cobros y suscripciones',
+    description: 'Gestiona pagos, facturación y planes con una experiencia administrativa más simple.',
+  },
+];
+
+const plans = [
+  {
+    name: 'Basic',
+    price: 'Gratis',
+    period: '30 días de prueba',
+    description: 'Para comenzar a ordenar la operación diaria.',
+    features: ['5 usuarios', '100 mascotas', 'Agenda y ficha clínica', 'Soporte por email'],
+    cta: 'Comenzar prueba',
+    highlighted: false,
+  },
+  {
+    name: 'Professional',
+    price: '$49',
+    period: '/mes',
+    description: 'Ideal para clínicas y pet shops en crecimiento.',
+    features: ['50 usuarios', '1000 mascotas', 'Reportes avanzados', 'API e integraciones', 'Soporte prioritario'],
+    cta: 'Comenzar ahora',
+    highlighted: true,
+  },
+  {
+    name: 'Enterprise',
+    price: 'Personalizado',
+    period: 'Contactar ventas',
+    description: 'Pensado para operación multi-sede y expansión.',
+    features: ['Usuarios ilimitados', 'Mascotas ilimitadas', 'Soporte 24/7', 'Consultoría dedicada'],
+    cta: 'Contactar',
+    highlighted: false,
+  },
+];
+
+const highlights = [
+  '30 días gratis',
+  'Sin tarjeta de crédito',
+  'Onboarding guiado',
+];
+
+const heroMetrics = [
+  { label: 'Pacientes activos', value: '+12.4k' },
+  { label: 'Citas coordinadas', value: '98%' },
+  { label: 'Satisfacción operativa', value: '4.9/5' },
+];
+
 export default function LandingPage({ onRegisterCompany, onLogin }: LandingPageProps) {
-  const features = [
-    {
-      icon: PawPrint,
-      title: 'Gestión de Mascotas',
-      description: 'Administra perfiles completos de mascotas con historial médico, vacunas y seguimiento personalizado'
-    },
-    {
-      icon: Users,
-      title: 'Multi-Tenant',
-      description: 'Plataforma SaaS diseñada para múltiples organizaciones con aislamiento total de datos y seguridad'
-    },
-    {
-      icon: Heart,
-      title: 'Salud Veterinaria',
-      description: 'Registro detallado de consultas, tratamientos, diagnósticos y seguimiento médico completo'
-    },
-    {
-      icon: Calendar,
-      title: 'Reservas y Citas',
-      description: 'Sistema de agendamiento con recordatorios automáticos y gestión de disponibilidad'
-    },
-    {
-      icon: BarChart3,
-      title: 'Reportes Avanzados',
-      description: 'Visualiza métricas detalladas con dashboards interactivos y reportes completos de rendimiento'
-    },
-    {
-      icon: Shield,
-      title: 'Seguridad Premium',
-      description: 'Row Level Security (RLS) con encriptación, backups automáticos y cumplimiento de normativas'
-    },
-    {
-      icon: Package,
-      title: 'Comercio Integrado',
-      description: 'Gestión de productos, órdenes de compra y seguimiento de inventario en tiempo real'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Analytics en Tiempo Real',
-      description: 'Métricas instantáneas de tu negocio con dashboards personalizables y KPIs importantes'
-    },
-    {
-      icon: CreditCard,
-      title: 'Pagos y Facturación',
-      description: 'Procesamiento de pagos integrado con generación automática de facturas y recibos'
-    }
-  ];
-
-  const plans = [
-    {
-      name: 'Basic',
-      price: 'Gratis',
-      period: '30 días de prueba',
-      features: [
-        '5 usuarios',
-        '100 mascotas',
-        'Funcionalidades básicas',
-        'Soporte por email',
-        'Reportes básicos'
-      ],
-      cta: 'Comenzar prueba',
-      highlighted: false
-    },
-    {
-      name: 'Professional',
-      price: '$49',
-      period: '/mes',
-      features: [
-        '50 usuarios',
-        '1000 mascotas',
-        'Todas las funcionalidades',
-        'Soporte prioritario',
-        'Reportes avanzados',
-        'Integraciones API',
-        'Personalización de marca'
-      ],
-      cta: 'Comenzar ahora',
-      highlighted: true
-    },
-    {
-      name: 'Enterprise',
-      price: 'Personalizado',
-      period: 'Contactar ventas',
-      features: [
-        'Usuarios ilimitados',
-        'Mascotas ilimitadas',
-        'Funcionalidades premium',
-        'Soporte 24/7',
-        'Analytics avanzado',
-        'Consultoría dedicada',
-        'SLA garantizado',
-        'Dominio personalizado'
-      ],
-      cta: 'Contactar',
-      highlighted: false
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <nav className="border-b border-slate-800 bg-slate-950/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <PawPrint className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">PetCare</span>
-              <span className="text-xs text-slate-400 ml-2">BY AYALA IT</span>
+    <div className="min-h-screen bg-[#f4f8f6] text-slate-900">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[540px] bg-[radial-gradient(circle_at_top_left,_rgba(20,184,166,0.18),_transparent_45%),radial-gradient(circle_at_top_right,_rgba(250,204,21,0.12),_transparent_35%),linear-gradient(180deg,_#f8fffd_0%,_#f4f8f6_70%)]" />
+
+      <nav className="sticky top-0 z-20 border-b border-emerald-100/80 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-lg shadow-emerald-500/20">
+              <PawPrint className="h-6 w-6 text-white" />
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onLogin}
-                className="px-6 py-2.5 text-white hover:text-cyan-400 transition-colors font-medium"
-              >
-                Iniciar sesión
-              </button>
-              <button
-                onClick={onRegisterCompany}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg font-medium hover:from-cyan-600 hover:to-blue-700 transition-all shadow-lg shadow-cyan-500/20"
-              >
-                Registrar empresa
-              </button>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-slate-900">PetCare Core</p>
+              <p className="text-xs font-medium uppercase tracking-[0.24em] text-emerald-700/70">By Ayala IT</p>
             </div>
+          </div>
+
+          <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+            <span>Solución veterinaria</span>
+            <span>Operación multi-tenant</span>
+            <span>Gestión comercial</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onLogin}
+              className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              Iniciar sesión
+            </button>
+            <button
+              onClick={onRegisterCompany}
+              className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800"
+            >
+              Registrar empresa
+            </button>
           </div>
         </div>
       </nav>
 
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent pointer-events-none"></div>
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-1/4 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-        </div>
+        <div className="mx-auto grid max-w-7xl gap-14 px-6 py-16 md:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/90 px-4 py-2 text-sm font-medium text-emerald-800 shadow-sm shadow-emerald-100/60">
+              <Sparkles className="h-4 w-4" />
+              Diseño y operación pensados para clínicas, veterinarias y pet shops
+            </div>
 
-        <div className="relative max-w-7xl mx-auto px-6 py-24 md:py-32">
-          <div className="text-center space-y-8">
-            <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight">
-              Gestiona tu clínica veterinaria
-              <br />
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                de forma profesional
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-              Plataforma completa multi-tenant para gestionar mascotas, citas veterinarias,
-              historial médico y toda tu operación desde un solo lugar
-            </p>
-            <div className="flex items-center justify-center gap-4 pt-4">
+            <div className="space-y-5">
+              <h1 className="max-w-4xl text-5xl font-black tracking-tight text-slate-950 md:text-6xl lg:text-7xl">
+                Una plataforma seria para
+                <span className="block bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 bg-clip-text text-transparent">
+                  cuidar mejor a cada mascota
+                </span>
+              </h1>
+              <p className="max-w-2xl text-lg leading-8 text-slate-600 md:text-xl">
+                Controla agenda, historia clínica, clientes, inventario, cobros y reportes desde una experiencia visual más clara,
+                profesional y alineada con un negocio de cuidado animal.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <button
                 onClick={onRegisterCompany}
-                className="group flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-lg rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-700 transition-all shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 hover:scale-105"
+                className="group inline-flex items-center justify-start gap-3 rounded-2xl bg-slate-950 px-8 py-4 text-left text-lg font-semibold text-white shadow-2xl shadow-emerald-900/10 transition-all hover:-translate-y-1 hover:bg-slate-800"
               >
-                Comienza ahora
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <span>Comienza ahora</span>
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </button>
-              <button className="px-8 py-4 border-2 border-slate-700 text-white text-lg rounded-xl font-semibold hover:border-slate-600 hover:bg-slate-800/50 transition-all">
+              <button className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-4 text-lg font-semibold text-slate-700 shadow-sm transition-all hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
                 Ver demo
               </button>
             </div>
-            <div className="flex items-center justify-center gap-8 text-sm text-slate-400 pt-8">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>30 días gratis</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Sin tarjeta de crédito</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Soporte incluido</span>
-              </div>
+
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
+              {highlights.map((item) => (
+                <div key={item} className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <span>{item}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="py-24 bg-slate-950/50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Todo lo que necesitas en un solo lugar
-            </h2>
-            <p className="text-xl text-slate-400">
-              Funcionalidades diseñadas para optimizar tu operación veterinaria
-            </p>
-          </div>
+          <div className="relative">
+            <div className="absolute -left-8 top-10 h-32 w-32 rounded-full bg-emerald-200/50 blur-3xl" />
+            <div className="absolute -right-6 bottom-4 h-40 w-40 rounded-full bg-cyan-200/50 blur-3xl" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="group relative bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl p-8 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
-                <div className="relative">
-                  <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform shadow-lg shadow-cyan-500/20">
-                    <feature.icon className="w-7 h-7 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                  <p className="text-slate-400 leading-relaxed">{feature.description}</p>
+            <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/85 p-6 shadow-[0_30px_80px_-30px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-6">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-700/70">Vista operativa</p>
+                  <h2 className="mt-2 text-2xl font-bold text-slate-950">Control diario de la clínica</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Información clave accesible para recepción, consulta, grooming, guardería y administración.
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-right">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Hoy</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-950">27</p>
+                  <p className="text-xs text-slate-500">citas agendadas</p>
                 </div>
               </div>
-            ))}
+
+              <div className="grid gap-4 py-6 sm:grid-cols-3">
+                {heroMetrics.map((metric) => (
+                  <div key={metric.label} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{metric.label}</p>
+                    <p className="mt-3 text-2xl font-bold text-slate-950">{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-3xl bg-slate-950 p-5 text-white">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <div>
+                      <p className="text-sm font-semibold text-white/70">Paciente destacado</p>
+                      <h3 className="mt-1 text-xl font-bold">Luna · Vacunación anual</h3>
+                    </div>
+                    <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-200">En curso</div>
+                  </div>
+                  <div className="mt-4 space-y-4 text-sm text-slate-300">
+                    <div className="flex items-center justify-between">
+                      <span>Responsable</span>
+                      <span className="font-semibold text-white">Dra. González</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Propietario</span>
+                      <span className="font-semibold text-white">María García</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Próximo control</span>
+                      <span className="font-semibold text-white">12 de junio</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-3xl border border-emerald-100 bg-emerald-50/70 p-5">
+                  <p className="text-sm font-semibold text-emerald-800">Lo que mejora tu equipo</p>
+                  <div className="space-y-3 text-sm text-slate-700">
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">Recepción más rápida y ordenada</div>
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">Visibilidad de consultas y servicios</div>
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">Cobros, stock y reportes conectados</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="py-24">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Planes para cada necesidad
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mx-auto mb-14 max-w-3xl text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-700">Capacidades clave</p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+              Diseño claro para una operación compleja
             </h2>
-            <p className="text-xl text-slate-400">
-              Comienza gratis y escala conforme creces
+            <p className="mt-4 text-lg leading-8 text-slate-600">
+              Cada módulo fue presentado para transmitir confianza, orden y foco en bienestar animal sin tocar la lógica existente.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {plans.map((plan, index) => (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+
+              return (
+                <div
+                  key={feature.title}
+                  className="group rounded-[28px] border border-white/80 bg-white p-7 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.35)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-100"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-700 transition-transform duration-300 group-hover:scale-105">
+                    <Icon className="h-7 w-7" />
+                  </div>
+                  <h3 className="mt-6 text-xl font-bold text-slate-950">{feature.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{feature.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="grid gap-8 rounded-[36px] border border-slate-200 bg-slate-950 p-8 text-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.9)] lg:grid-cols-[0.8fr_1.2fr] lg:p-12">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">Propuesta visual</p>
+              <h2 className="mt-4 text-4xl font-black tracking-tight">Un lenguaje de marca más profesional para el mundo pet</h2>
+              <p className="mt-4 text-lg leading-8 text-slate-300">
+                Mezcla tonos clínicos, acentos cálidos y una jerarquía visual más limpia para transmitir cuidado, confianza y control.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {[
+                { title: 'Cuidado', text: 'Verdes suaves y superficies limpias para comunicar bienestar.' },
+                { title: 'Confianza', text: 'Tarjetas, bordes y contrastes que mejoran lectura y credibilidad.' },
+                { title: 'Escala', text: 'Componentes más sólidos para crecer desde clínica a operación multi-sede.' },
+              ].map((item) => (
+                <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+                  <p className="text-lg font-bold text-white">{item.title}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mx-auto mb-14 max-w-3xl text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-700">Planes</p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Una base sólida para cada etapa</h2>
+            <p className="mt-4 text-lg leading-8 text-slate-600">Empieza simple y escala sin cambiar de plataforma.</p>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {plans.map((plan) => (
               <div
-                key={index}
-                className={`relative rounded-2xl p-8 ${
+                key={plan.name}
+                className={`rounded-[30px] border p-8 transition-all ${
                   plan.highlighted
-                    ? 'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-2xl shadow-cyan-500/30 scale-105'
-                    : 'bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700'
+                    ? 'border-slate-950 bg-slate-950 text-white shadow-[0_28px_80px_-36px_rgba(15,23,42,0.9)]'
+                    : 'border-white/80 bg-white text-slate-900 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.25)]'
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-500 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
-                    Más popular
+                  <div className="mb-6 inline-flex rounded-full bg-emerald-400 px-4 py-1 text-xs font-bold uppercase tracking-[0.22em] text-slate-950">
+                    Más elegido
                   </div>
                 )}
-                <div className="text-center mb-8">
-                  <h3 className={`text-2xl font-bold mb-2 ${plan.highlighted ? 'text-white' : 'text-white'}`}>
-                    {plan.name}
-                  </h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className={`text-5xl font-bold ${plan.highlighted ? 'text-white' : 'text-white'}`}>
-                      {plan.price}
-                    </span>
-                    <span className={`text-lg ${plan.highlighted ? 'text-white/80' : 'text-slate-400'}`}>
-                      {plan.period}
-                    </span>
-                  </div>
+                <h3 className="text-2xl font-bold">{plan.name}</h3>
+                <p className={`mt-3 text-sm leading-7 ${plan.highlighted ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {plan.description}
+                </p>
+                <div className="mt-6 flex items-end gap-2">
+                  <span className="text-5xl font-black">{plan.price}</span>
+                  <span className={`pb-1 text-sm ${plan.highlighted ? 'text-slate-400' : 'text-slate-500'}`}>{plan.period}</span>
                 </div>
-                <ul className="space-y-4 mb-8">
-                  {plan.features.map((feature, fIndex) => (
-                    <li key={fIndex} className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        plan.highlighted ? 'bg-white/20' : 'bg-cyan-500/20'
-                      }`}>
-                        <div className={`w-2 h-2 rounded-full ${
-                          plan.highlighted ? 'bg-white' : 'bg-cyan-500'
-                        }`}></div>
-                      </div>
-                      <span className={plan.highlighted ? 'text-white' : 'text-slate-300'}>
-                        {feature}
-                      </span>
+                <ul className="mt-8 space-y-4">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-sm leading-7">
+                      <CheckCircle2 className={`mt-1 h-4 w-4 flex-shrink-0 ${plan.highlighted ? 'text-emerald-300' : 'text-emerald-600'}`} />
+                      <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
                 <button
                   onClick={onRegisterCompany}
-                  className={`w-full py-4 rounded-xl font-semibold transition-all ${
+                  className={`mt-8 inline-flex w-full items-center justify-center rounded-2xl px-6 py-4 text-sm font-semibold transition-all ${
                     plan.highlighted
-                      ? 'bg-white text-blue-600 hover:bg-slate-100 shadow-lg'
-                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 shadow-lg shadow-cyan-500/20'
+                      ? 'bg-white text-slate-950 hover:bg-emerald-50'
+                      : 'bg-slate-950 text-white hover:bg-slate-800'
                   }`}
                 >
                   {plan.cta}
@@ -286,39 +368,30 @@ export default function LandingPage({ onRegisterCompany, onLogin }: LandingPageP
         </div>
       </section>
 
-      <section className="py-24 bg-gradient-to-br from-cyan-500 to-blue-600">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Comienza tu prueba gratuita hoy
-          </h2>
-          <p className="text-xl text-white/90 mb-8">
-            30 días de acceso completo sin necesidad de tarjeta de crédito
-          </p>
-          <button
-            onClick={onRegisterCompany}
-            className="group inline-flex items-center gap-3 px-10 py-5 bg-white text-blue-600 text-lg rounded-xl font-bold hover:bg-slate-100 transition-all shadow-2xl hover:scale-105"
-          >
-            Crear cuenta gratis
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-      </section>
-
-      <footer className="border-t border-slate-800 bg-slate-950">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <PawPrint className="w-5 h-5 text-white" />
+      <section className="pb-24">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="rounded-[36px] border border-emerald-100 bg-gradient-to-r from-emerald-100 via-white to-cyan-100 p-10 shadow-[0_28px_70px_-38px_rgba(15,23,42,0.35)] md:p-14">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-700">Listo para comenzar</p>
+                <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+                  Lleva tu operación pet a una experiencia más ordenada y profesional
+                </h2>
+                <p className="mt-4 text-lg leading-8 text-slate-600">
+                  Mantuvimos la lógica actual y elevamos la presentación para que el producto se sienta más confiable desde el primer vistazo.
+                </p>
               </div>
-              <span className="text-lg font-bold text-white">PetCare</span>
+              <button
+                onClick={onRegisterCompany}
+                className="inline-flex items-center justify-center gap-3 rounded-2xl bg-slate-950 px-8 py-4 text-lg font-semibold text-white shadow-xl shadow-slate-900/10 transition-all hover:-translate-y-1 hover:bg-slate-800"
+              >
+                Crear cuenta gratis
+                <ArrowRight className="h-5 w-5" />
+              </button>
             </div>
-            <p className="text-slate-500 text-sm">
-              © 2024 PetCare. Todos los derechos reservados.
-            </p>
           </div>
         </div>
-      </footer>
+      </section>
     </div>
   );
 }

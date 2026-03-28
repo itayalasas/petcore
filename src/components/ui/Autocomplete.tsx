@@ -69,12 +69,12 @@ export default function Autocomplete({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full px-4 py-2.5 border rounded-lg text-sm text-left flex items-center justify-between transition-all ${
+        className={`w-full rounded-2xl px-4 py-3 border text-sm text-left flex items-center justify-between transition-all ${
           error
             ? 'border-red-300 bg-red-50'
             : isOpen
             ? 'border-primary-500 ring-2 ring-primary-500 ring-opacity-50'
-            : 'border-gray-300 bg-white hover:border-gray-400'
+            : 'border-gray-200 bg-white hover:border-gray-300'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span className={selectedOption ? 'text-gray-900' : 'text-gray-500'}>
@@ -86,7 +86,7 @@ export default function Autocomplete({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-28px_rgba(15,23,42,0.28)]">
           <div className="p-2 border-b border-gray-200">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -95,7 +95,7 @@ export default function Autocomplete({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full rounded-2xl border border-gray-200 pl-9 pr-3 py-2.5 text-sm focus:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-200"
                 autoFocus
               />
             </div>
@@ -118,7 +118,7 @@ export default function Autocomplete({
                     key={option.value}
                     type="button"
                     onClick={() => handleSelect(option.value)}
-                    className={`w-full px-4 py-2.5 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                    className={`w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
                       selectedValue === option.value ? 'bg-primary-50' : ''
                     }`}
                   >

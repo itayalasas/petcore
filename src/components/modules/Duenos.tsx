@@ -1,5 +1,6 @@
 import { Plus, Users, Mail, Phone, MapPin, Search, CreditCard as Edit, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { ownersService, Owner } from '../../services/owners';
 import Table from '../ui/Table';
@@ -15,6 +16,7 @@ export default function Duenos() {
   const [editingOwner, setEditingOwner] = useState<Owner | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [ownerToDelete, setOwnerToDelete] = useState<Owner | null>(null);
+  const [savingOwner, setSavingOwner] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
@@ -118,6 +120,8 @@ export default function Duenos() {
       return;
     }
 
+    setSavingOwner(true);
+
     try {
       if (editingOwner) {
         await ownersService.update(editingOwner.id, formData);
@@ -131,6 +135,8 @@ export default function Duenos() {
       console.error('Error al guardar dueño:', error);
       const message = error?.message || 'Error desconocido';
       alert(`Error al guardar dueño: ${message}`);
+    } finally {
+      setSavingOwner(false);
     }
   };
 
@@ -353,10 +359,17 @@ export default function Duenos() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!formData.first_name || !formData.last_name}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={savingOwner || !formData.first_name || !formData.last_name}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg hover:from-cyan-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {editingOwner ? 'Actualizar' : 'Crear'} Dueño
+                {savingOwner ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>{editingOwner ? 'Actualizar' : 'Crear'} Dueño</>
+                )}
               </button>
             </div>
           </div>

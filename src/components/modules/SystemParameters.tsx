@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Settings2, Trash2, CreditCard as Edit2, Check, X, ChevronDown, ChevronRight, Search, Filter, ToggleLeft, ToggleRight, Lock, Database } from 'lucide-react';
+import { Plus, Settings2, Trash2, CreditCard as Edit2, Check, X, ChevronDown, ChevronRight, Search, Filter, ToggleLeft, ToggleRight, Lock, Database, Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
@@ -25,6 +25,7 @@ export default function SystemParameters() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [savingParam, setSavingParam] = useState(false);
   const [editingParam, setEditingParam] = useState<SystemParameter | null>(null);
   const [paramToDelete, setParamToDelete] = useState<SystemParameter | null>(null);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
@@ -109,6 +110,8 @@ export default function SystemParameters() {
   const handleSave = async () => {
     if (!currentTenant) return;
 
+    setSavingParam(true);
+
     try {
       let parsedValue: Record<string, unknown> = {};
 
@@ -157,6 +160,8 @@ export default function SystemParameters() {
     } catch (error: any) {
       console.error('Error saving parameter:', error);
       showError('Error al guardar: ' + error.message);
+    } finally {
+      setSavingParam(false);
     }
   };
 
@@ -220,12 +225,14 @@ export default function SystemParameters() {
     return PARAMETER_TYPES.find(t => t.code === typeCode) || { code: typeCode, name: typeCode, description: '' };
   };
 
-  if (loading) {
-    return <LoadingSpinner message="Cargando parametros..." />;
-  }
+  const showInitialLoading = loading && parameters.length === 0;
 
   return (
     <div className="space-y-6">
+      {showInitialLoading ? (
+        <LoadingSpinner message="Cargando parametros..." />
+      ) : (
+        <>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
@@ -579,10 +586,17 @@ export default function SystemParameters() {
             </button>
             <button
               onClick={handleSave}
-              disabled={!formData.type || !formData.name}
-              className="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50"
+              disabled={savingParam || !formData.type || !formData.name}
+              className="flex-1 px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {editingParam ? 'Actualizar' : 'Crear'}
+              {savingParam ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>{editingParam ? 'Actualizar' : 'Crear'}</>
+              )}
             </button>
           </div>
         </div>
@@ -598,6 +612,8 @@ export default function SystemParameters() {
         title="Eliminar Parametro"
         message={`Esta seguro de eliminar "${paramToDelete?.name}"? Esta accion no se puede deshacer.`}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -49,6 +49,17 @@ export default function Servicios() {
     }
   }, [currentTenant, currentMembership?.role, currentMembership?.user_id]);
 
+  useEffect(() => {
+    const handleAppointmentsChanged = () => {
+      if (currentTenant) {
+        loadData();
+      }
+    };
+
+    window.addEventListener('appointments:changed', handleAppointmentsChanged);
+    return () => window.removeEventListener('appointments:changed', handleAppointmentsChanged);
+  }, [currentTenant, currentMembership?.role, currentMembership?.user_id]);
+
   const getVisibleAppointments = (appointmentsData: AppointmentWithDetails[]) => {
     const sortedAppointments = [...appointmentsData].sort(
       (left, right) => new Date(left.scheduled_at).getTime() - new Date(right.scheduled_at).getTime()
@@ -133,6 +144,7 @@ export default function Servicios() {
       setSaving(true);
       await appointmentsService.delete(appointmentToDelete.id);
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
       showSuccess('Reserva eliminada correctamente');
       setShowDeleteModal(false);
       setAppointmentToDelete(null);
@@ -186,6 +198,7 @@ export default function Servicios() {
       }
 
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
       handleCloseBookingModal();
     } catch (error) {
       console.error('Error saving appointment:', error);

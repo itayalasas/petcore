@@ -1,5 +1,6 @@
 import { Plus, Scissors, Search, Check, Clock, AlertCircle, Camera, X, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
@@ -76,6 +77,7 @@ export default function Estetica() {
   const [services, setServices] = useState<Service[]>([]);
   const [staff, setStaff] = useState<VeterinarianProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingService, setSavingService] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState<PetService | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
@@ -215,6 +217,8 @@ export default function Estetica() {
       return;
     }
 
+    setSavingService(true);
+
     try {
       const serviceData = {
         tenant_id: currentTenant.id,
@@ -266,6 +270,8 @@ export default function Estetica() {
     } catch (error) {
       console.error('Error saving service:', error);
       showError('Error al guardar el servicio');
+    } finally {
+      setSavingService(false);
     }
   };
 
@@ -722,9 +728,15 @@ export default function Estetica() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              disabled={savingService}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              {editingService ? 'Actualizar' : 'Guardar'}
+              {savingService ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : editingService ? 'Actualizar' : 'Guardar'}
             </button>
           </div>
         </form>

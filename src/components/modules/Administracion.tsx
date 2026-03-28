@@ -1,5 +1,6 @@
 import { Plus, Users, Shield, Settings, Bell, Key, Database, Calendar, Clock, MapPin, UserCog, Lock, Activity, FileText, Eye, Save, ToggleLeft, ToggleRight, XCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
+import { Loader } from 'lucide-react';
 import Table from '../ui/Table';
 import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';

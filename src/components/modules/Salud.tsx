@@ -1,17 +1,19 @@
 import { Plus, FileText, Activity, Calendar, Weight, Thermometer, Heart, Pill, Save, X, Search, Filter, ShoppingCart, DollarSign, Trash2, Stethoscope, ClipboardList, Syringe, Send } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../contexts/TenantContext';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
-import { FormField, Input, Textarea } from '../ui/FormField';
+import { FormField, Input, Select, Textarea } from '../ui/FormField';
 import { showSuccess, showError } from '../../utils/messages';
 import { getMedications, type Medication } from '../../services/medications';
 import { getDiagnoses, type Diagnosis } from '../../services/diagnoses';
 import { getTreatments, type Treatment } from '../../services/treatments';
 import { createPrescription } from '../../services/prescriptions';
 import { notificationsService } from '../../services/notifications';
+import { getParameterOptionsByType, type SystemParameterOption } from '../../services/systemParameters';
 
 const PENDING_CONSULTATION_APPOINTMENT_KEY = 'pendingConsultationAppointmentId';
 
@@ -146,10 +148,15 @@ const isRelationCacheError = (error: unknown) => {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST200';
 };
 
+const getParameterLabel = (options: SystemParameterOption[], value: string) => {
+  const match = options.find((option) => option.value === value || option.label === value);
+  return match?.label ?? value;
+};
+
 const panelClassName = 'rounded-2xl border border-slate-200 bg-white/95 shadow-sm shadow-slate-200/60';
 const softSectionClassName = 'rounded-2xl border border-slate-200 bg-slate-50/90 p-4';
-const subtleInputClassName = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100';
-const accentButtonClassName = 'inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-700';
+const subtleInputClassName = 'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100';
+const accentButtonClassName = 'inline-flex items-center gap-2 rounded-2xl bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700';
 
 export default function Salud() {
   const { currentTenant } = useTenant();
@@ -171,6 +178,10 @@ export default function Salud() {
   const [showTreatmentModal, setShowTreatmentModal] = useState(false);
   const [showVaccineModal, setShowVaccineModal] = useState(false);
   const [vaccineCatalog, setVaccineCatalog] = useState<VaccineCatalog[]>([]);
+  const [medicationRoutes, setMedicationRoutes] = useState<SystemParameterOption[]>([]);
+  const [medicationFrequencies, setMedicationFrequencies] = useState<SystemParameterOption[]>([]);
+  const [selectedPrescriptionRoute, setSelectedPrescriptionRoute] = useState('oral');
+  const [selectedPrescriptionFrequency, setSelectedPrescriptionFrequency] = useState('cada_12h');
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [itemType, setItemType] = useState<'product' | 'service'>('product');
   const [catalogsLoaded, setCatalogsLoaded] = useState(false);
@@ -437,6 +448,26 @@ export default function Salud() {
     }
   };
 
+  const loadPrescriptionParameters = async () => {
+    try {
+      const [routes, frequencies] = await Promise.all([
+        getParameterOptionsByType(currentTenant!.id, 'medication_route'),
+        getParameterOptionsByType(currentTenant!.id, 'medication_frequency')
+      ]);
+
+      setMedicationRoutes(routes);
+      setMedicationFrequencies(frequencies);
+      setSelectedPrescriptionRoute((current) => routes.some((option) => option.value === current)
+        ? current
+        : routes[0]?.value || 'oral');
+      setSelectedPrescriptionFrequency((current) => frequencies.some((option) => option.value === current)
+        ? current
+        : frequencies[0]?.value || 'cada_12h');
+    } catch (error) {
+      console.error('Error loading prescription parameters:', error);
+    }
+  };
+
   const ensureBaseCatalogsLoaded = async () => {
     if (!currentTenant || catalogsLoaded || catalogLoading) {
       return;
@@ -458,7 +489,13 @@ export default function Salud() {
 
     try {
       setCatalogLoading(true);
-      await Promise.all([loadMedications(), loadDiagnoses(), loadTreatments(), loadVaccineCatalog()]);
+      await Promise.all([
+        loadMedications(),
+        loadDiagnoses(),
+        loadTreatments(),
+        loadVaccineCatalog(),
+        loadPrescriptionParameters()
+      ]);
       setClinicalCatalogsLoaded(true);
     } finally {
       setCatalogLoading(false);
@@ -506,10 +543,10 @@ export default function Salud() {
       medication_id: medication.id,
       medication_name: medication.name,
       dosage: '',
-      frequency: 'Cada 12 horas',
+      frequency: selectedPrescriptionFrequency,
       duration_days: 7,
       quantity: '1',
-      route: 'oral',
+      route: selectedPrescriptionRoute,
       instructions: ''
     };
 
@@ -525,6 +562,12 @@ export default function Salud() {
       ...formData,
       prescriptions: formData.prescriptions.filter((_, i) => i !== index)
     });
+  };
+
+  const handleOpenPrescriptionModal = async () => {
+    await ensureClinicalCatalogsLoaded();
+    setItemSearchTerm('');
+    setShowPrescriptionModal(true);
   };
 
   const addDiagnosis = (diagnosis: Diagnosis) => {
@@ -1027,6 +1070,15 @@ export default function Salud() {
     return matchesSearch && matchesSpecies;
   });
 
+  const prescriptionRouteOptions = medicationRoutes.length > 0
+    ? medicationRoutes
+    : ([{ value: 'oral', label: 'Oral', description: '', parameter: {} as SystemParameterOption['parameter'] }] as SystemParameterOption[]);
+
+  const prescriptionFrequencyOptions = medicationFrequencies.length > 0
+    ? medicationFrequencies
+    : ([{ value: 'cada_12h', label: 'Cada 12 horas', description: '', parameter: {} as SystemParameterOption['parameter'] }] as SystemParameterOption[]);
+
+
   const columns = [
     { key: 'date', label: 'Fecha', render: (_value: string, row: Consultation) => new Date(row.date).toLocaleDateString('es-ES') },
     { key: 'pet_name', label: 'Mascota' },
@@ -1314,7 +1366,7 @@ export default function Salud() {
               ) : (
                 <div className="space-y-2">
                   {formData.diagnoses.map((diag, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div key={index} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           {diag.is_primary && <Badge variant="success">Primario</Badge>}
@@ -1356,7 +1408,7 @@ export default function Salud() {
               ) : (
                 <div className="space-y-2">
                   {formData.treatments.map((treatment, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div key={index} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex-1">
                         <span className="text-sm font-medium text-slate-900">{treatment.treatment_name}</span>
                         {treatment.instructions && <p className="text-xs text-slate-500 mt-1">{treatment.instructions}</p>}
@@ -1401,7 +1453,7 @@ export default function Salud() {
               ) : (
                 <div className="space-y-2">
                   {formData.vaccines.map((vaccine, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3 shadow-sm">
+                    <div key={index} className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 p-3 shadow-sm">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <Syringe className="w-4 h-4 text-green-600" />
@@ -1433,7 +1485,7 @@ export default function Salud() {
                   Prescripciones
                 </h3>
                 <button
-                  onClick={() => setShowPrescriptionModal(true)}
+                  onClick={() => void handleOpenPrescriptionModal()}
                   className={accentButtonClassName}
                 >
                   <Plus className="w-4 h-4" />
@@ -1448,11 +1500,11 @@ export default function Salud() {
               ) : (
                 <div className="space-y-2">
                   {formData.prescriptions.map((prescription, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div key={index} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex-1">
                         <span className="text-sm font-medium text-slate-900">{prescription.medication_name}</span>
                         <p className="text-xs text-slate-500">
-                          {prescription.dosage} - {prescription.frequency} - {prescription.duration_days} días
+                          {prescription.dosage} - {getParameterLabel(prescriptionFrequencyOptions, prescription.frequency)} - {getParameterLabel(prescriptionRouteOptions, prescription.route)} - {prescription.duration_days} días
                         </p>
                       </div>
                       <button
@@ -1489,7 +1541,7 @@ export default function Salud() {
               ) : (
                 <div className="space-y-2">
                   {formData.billable_items.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div key={index} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <Badge variant={item.type === 'product' ? 'default' : 'info'}>
@@ -1503,7 +1555,7 @@ export default function Salud() {
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateBillableItemQuantity(index, parseInt(e.target.value))}
-                        className="w-16 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-sm text-slate-700 outline-none focus:border-teal-500"
+                        className="w-16 rounded-2xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-teal-500"
                       />
                       <span className="w-20 text-right text-sm font-medium text-slate-600">
                         ${(item.unit_price * item.quantity).toFixed(2)}
@@ -1546,10 +1598,19 @@ export default function Salud() {
               <button
                 onClick={handleSaveConsultation}
                 disabled={loading || !formData.pet_id || !formData.reason}
-                className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:from-teal-700 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:from-teal-700 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                <Save className="w-4 h-4 inline mr-2" />
-                {selectedConsultation ? 'Actualizar' : 'Guardar'} Consulta
+                {loading ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 inline" />
+                    {selectedConsultation ? 'Actualizar' : 'Guardar'} Consulta
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1566,7 +1627,7 @@ export default function Salud() {
             <div className="flex gap-2">
               <button
                 onClick={() => setItemType('product')}
-                className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition ${
+                className={`flex-1 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   itemType === 'product'
                     ? 'bg-teal-600 text-white shadow-sm shadow-teal-100'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1576,7 +1637,7 @@ export default function Salud() {
               </button>
               <button
                 onClick={() => setItemType('service')}
-                className={`flex-1 rounded-xl px-4 py-3 text-sm font-medium transition ${
+                className={`flex-1 rounded-2xl px-4 py-3 text-sm font-medium transition ${
                   itemType === 'service'
                     ? 'bg-teal-600 text-white shadow-sm shadow-teal-100'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1603,7 +1664,7 @@ export default function Salud() {
                   <button
                     key={product.id}
                     onClick={() => addBillableItem(product, 'product')}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
                     disabled={product.stock === 0}
                   >
                     <div className="flex justify-between items-center">
@@ -1620,7 +1681,7 @@ export default function Salud() {
                   <button
                     key={service.id}
                     onClick={() => addBillableItem(service, 'service')}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
                   >
                     <div className="flex justify-between items-center">
                       <p className="font-medium text-slate-900">{service.name}</p>
@@ -1641,6 +1702,38 @@ export default function Salud() {
           title="Agregar Prescripción"
         >
           <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormField label="Vía de administración">
+                <Select
+                  value={selectedPrescriptionRoute}
+                  onChange={(event) => setSelectedPrescriptionRoute(event.target.value)}
+                >
+                  {prescriptionRouteOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+
+              <FormField label="Frecuencia">
+                <Select
+                  value={selectedPrescriptionFrequency}
+                  onChange={(event) => setSelectedPrescriptionFrequency(event.target.value)}
+                >
+                  {prescriptionFrequencyOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            </div>
+
+            <div className="rounded-2xl border border-teal-100 bg-teal-50/60 px-4 py-3 text-xs text-teal-700">
+              Estos valores se cargan desde Parámetros del Sistema para mantener el mismo flujo configurable que usa el catálogo de vacunas.
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -1657,7 +1750,7 @@ export default function Salud() {
                 <button
                   key={medication.id}
                   onClick={() => addPrescription(medication)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
+                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
                 >
                   <div>
                     <p className="font-medium text-slate-900">{medication.name}</p>
@@ -1696,7 +1789,7 @@ export default function Salud() {
                 <button
                   key={diagnosis.id}
                   onClick={() => addDiagnosis(diagnosis)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
+                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
                 >
                   <div>
                     <div className="flex items-center gap-2">
@@ -1740,7 +1833,7 @@ export default function Salud() {
                 <button
                   key={treatment.id}
                   onClick={() => addTreatment(treatment)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
+                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/50"
                 >
                   <div>
                     <p className="font-medium text-slate-900">{treatment.name}</p>
@@ -1766,7 +1859,7 @@ export default function Salud() {
           title="Aplicar Vacuna"
         >
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-2">
+            <div className="rounded-2xl border border-green-200 bg-green-50 p-3 mb-2">
               <div className="flex items-center gap-2">
                 <Syringe className="w-5 h-5 text-green-600" />
                 <div>

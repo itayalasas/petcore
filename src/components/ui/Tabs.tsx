@@ -20,8 +20,8 @@ export default function Tabs({ tabs, defaultTab }: TabsProps) {
 
   return (
     <div>
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-8">
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
+        <nav className="flex flex-wrap gap-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -30,18 +30,18 @@ export default function Tabs({ tabs, defaultTab }: TabsProps) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-1 py-4 border-b-2 font-medium text-sm transition-colors ${
+                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
                   isActive
-                    ? 'border-primary-600 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100'
+                    : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'
                 }`}
               >
-                {Icon && <Icon className="w-4 h-4" />}
+                {Icon && <Icon className="h-4 w-4" />}
                 {tab.label}
                 {tab.badge !== undefined && (
                   <span
-                    className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                      isActive ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
                     }`}
                   >
                     {tab.badge}

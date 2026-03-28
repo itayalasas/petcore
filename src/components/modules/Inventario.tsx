@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Package, Plus, Search, AlertTriangle, TrendingDown, TrendingUp, Trash2, BarChart3, ArrowUp, ArrowDown, Download, Upload, Image, Link, X, CreditCard as Edit2 } from 'lucide-react';
+import { Package, Plus, Search, AlertTriangle, TrendingDown, TrendingUp, Trash2, BarChart3, ArrowUp, ArrowDown, Download, Upload, Image, Link, X, CreditCard as Edit2, Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
@@ -87,6 +87,8 @@ export default function Inventario() {
   const [importData, setImportData] = useState('');
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importing, setImporting] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [savingStock, setSavingStock] = useState(false);
 
   useEffect(() => {
     if (currentTenant) {
@@ -157,6 +159,8 @@ export default function Inventario() {
     e.preventDefault();
     if (!currentTenant) return;
 
+    setSavingProduct(true);
+
     try {
       const productData = {
         name: productForm.name,
@@ -197,12 +201,16 @@ export default function Inventario() {
       loadProducts();
     } catch (error: any) {
       showError('Error al guardar producto: ' + error.message);
+    } finally {
+      setSavingProduct(false);
     }
   };
 
   const handleStockAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
+
+    setSavingStock(true);
 
     try {
       const quantity = parseInt(stockForm.quantity);
@@ -237,6 +245,8 @@ export default function Inventario() {
       loadProducts();
     } catch (error: any) {
       showError('Error al ajustar stock: ' + error.message);
+    } finally {
+      setSavingStock(false);
     }
   };
 
@@ -966,9 +976,17 @@ VALUES
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              disabled={savingProduct}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              {editingProduct ? 'Guardar cambios' : 'Crear producto'}
+              {savingProduct ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>{editingProduct ? 'Guardar cambios' : 'Crear producto'}</>
+              )}
             </button>
           </div>
         </form>
@@ -1077,13 +1095,19 @@ VALUES
               </button>
               <button
                 type="submit"
-                className={`px-4 py-2 text-white rounded-lg ${
+                disabled={savingStock}
+                className={`px-4 py-2 text-white rounded-lg disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 ${
                   stockForm.type === 'entry' ? 'bg-green-600 hover:bg-green-700' :
                   stockForm.type === 'exit' ? 'bg-red-600 hover:bg-red-700' :
                   'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {stockForm.type === 'entry' ? 'Registrar entrada' :
+                {savingStock ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : stockForm.type === 'entry' ? 'Registrar entrada' :
                  stockForm.type === 'exit' ? 'Registrar salida' :
                  'Aplicar ajuste'}
               </button>

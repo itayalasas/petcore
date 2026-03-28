@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3 as Grid3X3, Users, Briefcase, AlertCircle, CheckCircle, Play, UserPlus, Plus, Search, X, Stethoscope, Scissors } from 'lucide-react';
+import { Calendar, Clock, User, Filter, ChevronLeft, ChevronRight, List, Grid3x3 as Grid3X3, Users, Briefcase, AlertCircle, CheckCircle, Play, UserPlus, Plus, Search, X, Stethoscope, Scissors, Loader } from 'lucide-react';
 import { useTenant } from '../../contexts/TenantContext';
 import { useToast } from '../../contexts/ToastContext';
 import { appointmentsService, AppointmentWithDetails, servicesService, Service } from '../../services/servicesAppointments';
@@ -68,6 +68,8 @@ export default function Agenda() {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [pendingReferrals, setPendingReferrals] = useState<ReferralWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assigningUser, setAssigningUser] = useState(false);
+  const [creatingAppointment, setCreatingAppointment] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [filterDepartment, setFilterDepartment] = useState<string>('');
@@ -111,6 +113,17 @@ export default function Agenda() {
     if (currentTenant) {
       loadData();
     }
+  }, [currentTenant]);
+
+  useEffect(() => {
+    const handleAppointmentsChanged = () => {
+      if (currentTenant) {
+        loadData();
+      }
+    };
+
+    window.addEventListener('appointments:changed', handleAppointmentsChanged);
+    return () => window.removeEventListener('appointments:changed', handleAppointmentsChanged);
   }, [currentTenant]);
 
   useEffect(() => {
@@ -164,6 +177,7 @@ export default function Agenda() {
 
   const getWeekDays = () => {
     const start = new Date(selectedDate);
+    start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - start.getDay());
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(start);
@@ -178,7 +192,11 @@ export default function Agenda() {
     if (viewMode === 'day' && !isSameDay(apptDate, selectedDate)) return false;
     if (viewMode === 'week') {
       const weekDays = getWeekDays();
-      if (apptDate < weekDays[0] || apptDate > weekDays[6]) return false;
+      const weekStart = new Date(weekDays[0]);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekDays[6]);
+      weekEnd.setHours(23, 59, 59, 999);
+      if (apptDate < weekStart || apptDate > weekEnd) return false;
     }
 
     if (filterDepartment && appt.service?.service_type !== filterDepartment) return false;
@@ -224,6 +242,8 @@ export default function Agenda() {
   const handleAssignEmployee = async () => {
     if (!selectedAppointment) return;
 
+    setAssigningUser(true);
+
     try {
       await appointmentsService.update(selectedAppointment.id, {
         employee_id: assignEmployeeId || null
@@ -234,9 +254,12 @@ export default function Agenda() {
       setAssignEmployeeId('');
       setEmployeeSearch('');
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
     } catch (error) {
       console.error('Error assigning employee:', error);
       showError('Error al asignar empleado');
+    } finally {
+      setAssigningUser(false);
     }
   };
 
@@ -245,6 +268,7 @@ export default function Agenda() {
       await appointmentsService.updateStatus(appointment.id, status);
       showSuccess('Estado actualizado');
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
     } catch (error) {
       console.error('Error updating status:', error);
       showError('Error al actualizar estado');
@@ -287,9 +311,12 @@ export default function Agenda() {
   const openNewAppointmentModal = (date: Date, hour: number) => {
     const scheduledAt = new Date(date);
     scheduledAt.setHours(hour, 0, 0, 0);
+    const localDateTime = new Date(scheduledAt.getTime() - scheduledAt.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
 
     setNewAppointmentData({
-      scheduled_at: scheduledAt.toISOString().slice(0, 16),
+      scheduled_at: localDateTime,
       pet_id: '',
       owner_id: '',
       service_id: '',
@@ -309,6 +336,8 @@ export default function Agenda() {
       return;
     }
 
+    setCreatingAppointment(true);
+
     try {
       const pet = pets.find(p => p.id === newAppointmentData.pet_id);
       await appointmentsService.create(currentTenant.id, {
@@ -320,9 +349,12 @@ export default function Agenda() {
       showSuccess('Cita creada');
       setShowNewAppointmentModal(false);
       await loadData();
+      window.dispatchEvent(new Event('appointments:changed'));
     } catch (error) {
       console.error('Error creating appointment:', error);
       showError('Error al crear cita');
+    } finally {
+      setCreatingAppointment(false);
     }
   };
 
@@ -1014,9 +1046,17 @@ export default function Agenda() {
               </button>
               <button
                 onClick={handleAssignEmployee}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                disabled={assigningUser}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
               >
-                Guardar
+                {assigningUser ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar'
+                )}
               </button>
             </div>
           </div>
@@ -1126,9 +1166,17 @@ export default function Agenda() {
             </button>
             <button
               onClick={handleCreateAppointment}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              disabled={creatingAppointment}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2"
             >
-              Crear cita
+              {creatingAppointment ? (
+                <>
+                  <Loader className="h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                'Crear cita'
+              )}
             </button>
           </div>
         </div>

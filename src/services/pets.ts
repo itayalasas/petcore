@@ -113,6 +113,33 @@ export const petsService = {
     return data as Pet[];
   },
 
+  async getPetsPage(tenantId: string, page: number, pageSize: number) {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await supabase
+      .from('pets')
+      .select(`
+        *,
+        owner:owners!owner_id (
+          id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          document_id,
+          address,
+          city
+        )
+      `, { count: 'exact' })
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    return { data: data as Pet[], count: count || 0 };
+  },
+
   async getPetById(id: string, tenantId?: string) {
     let query = supabase
       .from('pets')

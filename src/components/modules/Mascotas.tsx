@@ -1,5 +1,5 @@
-import { Plus, PawPrint, Calendar, User, Phone, MapPin, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader, Stethoscope, Scissors, Sparkles, Bath } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Plus, PawPrint, Calendar, User, Phone, QrCode, FileText, Mail, MapPin as Location, Syringe, Heart, Scale, Pill, ShoppingBag, AlertCircle, CheckCircle2, Clock, CreditCard as Edit2, Trash2, Loader, Stethoscope, Scissors, Sparkles, Bath, Upload, Image, ChevronLeft, ChevronRight } from 'lucide-react';
 import Table from '../ui/Table';
 import Filters from '../ui/Filters';
 import Modal from '../ui/Modal';
@@ -19,10 +19,14 @@ export default function Mascotas() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPets, setTotalPets] = useState(0);
+  const pageSize = 10;
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
+  const [selectedPetDetailsLoading, setSelectedPetDetailsLoading] = useState(false);
   const [selectedPetHealth, setSelectedPetHealth] = useState<PetHealth[]>([]);
   const [selectedPetBookings, setSelectedPetBookings] = useState<any[]>([]);
   const [selectedPetConsultations, setSelectedPetConsultations] = useState<any[]>([]);
@@ -32,6 +36,7 @@ export default function Mascotas() {
   const [selectedPetServices, setSelectedPetServices] = useState<PetService[]>([]);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [savingService, setSavingService] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [serviceFormData, setServiceFormData] = useState({
     service_name: '',
     service_type: 'grooming' as PetService['service_type'],
@@ -43,7 +48,7 @@ export default function Mascotas() {
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
   const [ownerType, setOwnerType] = useState<'existing' | 'new'>('existing');
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<any>({ photo_url: '' });
   const [newOwnerData, setNewOwnerData] = useState<any>({});
   const [saving, setSaving] = useState(false);
 
@@ -51,18 +56,19 @@ export default function Mascotas() {
     if (currentTenant) {
       loadData();
     }
-  }, [currentTenant]);
+  }, [currentTenant, currentPage]);
 
   const loadData = async () => {
     if (!currentTenant) return;
 
     try {
       setLoading(true);
-      const [petsData, ownersData] = await Promise.all([
-        petsService.getAllPets(currentTenant.id),
+      const [petsResult, ownersData] = await Promise.all([
+        petsService.getPetsPage(currentTenant.id, currentPage, pageSize),
         ownersService.getAll(currentTenant.id)
       ]);
-      setPets(petsData);
+      setPets(petsResult.data);
+      setTotalPets(petsResult.count);
       setOwners(ownersData);
     } catch (error) {
       console.error('Error al cargar datos:', error);
@@ -75,6 +81,7 @@ export default function Mascotas() {
     if (!currentTenant) return;
 
     try {
+      setSelectedPetDetailsLoading(true);
       const [healthRecords, bookings, consultations, petServices] = await Promise.all([
         petsService.getPetHealthRecords(pet.id, currentTenant.id),
         petsService.getBookingsByPet(pet.id, currentTenant.id),
@@ -87,6 +94,8 @@ export default function Mascotas() {
       setSelectedPetServices(petServices || []);
     } catch (error) {
       console.error('Error loading pet details:', error);
+    } finally {
+      setSelectedPetDetailsLoading(false);
     }
   };
 
@@ -191,6 +200,7 @@ export default function Mascotas() {
       is_neutered: pet.is_neutered,
       medical_notes: pet.medical_notes,
       owner_id: pet.owner_id,
+      photo_url: pet.photo_url || '',
     });
     setShowFormModal(true);
   };
@@ -204,7 +214,7 @@ export default function Mascotas() {
     setShowFormModal(false);
     setEditingPet(null);
     setOwnerType('existing');
-    setFormData({});
+    setFormData({ photo_url: '' });
     setNewOwnerData({});
   };
 
@@ -213,6 +223,7 @@ export default function Mascotas() {
 
     try {
       await petsService.deletePet(petToDelete.id, currentTenant.id);
+      setCurrentPage(1);
       await loadData();
       setShowDeleteModal(false);
       setPetToDelete(null);
@@ -261,6 +272,7 @@ export default function Mascotas() {
         color: formData.color || '',
         weight: formData.weight || 0,
         chip_number: formData.chip_number || null,
+        photo_url: formData.photo_url || null,
         has_chip: !!formData.chip_number,
         is_neutered: formData.is_neutered || false,
         medical_notes: formData.medical_notes || '',
@@ -274,6 +286,7 @@ export default function Mascotas() {
         await petsService.createPet(petData);
       }
 
+      setCurrentPage(1);
       await loadData();
       handleCloseFormModal();
     } catch (error: any) {
@@ -402,8 +415,17 @@ export default function Mascotas() {
     { key: 'date', label: 'Última visita', type: 'date' as const },
   ];
 
+  const totalPages = Math.max(1, Math.ceil(totalPets / pageSize));
+  const startItem = totalPets === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalPets);
+
   const handleRowClick = async (row: Pet) => {
     setSelectedPet(row);
+    setSelectedPetHealth([]);
+    setSelectedPetBookings([]);
+    setSelectedPetConsultations([]);
+    setSelectedPetServices([]);
+    setSelectedPetDetailsLoading(true);
     setShowDetailModal(true);
     await loadPetDetails(row);
   };
@@ -414,6 +436,46 @@ export default function Mascotas() {
       label: `${owner.first_name} ${owner.last_name}`,
       subtitle: owner.phone || owner.email || owner.document_id || ''
     }));
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    if (!currentTenant) return;
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showError('La foto no puede superar 5MB');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      showError('Solo se permiten imágenes JPG, PNG, WebP o GIF');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentTenant.id}/pets/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      setFormData({ ...formData, photo_url: publicUrl });
+      showSuccess('Foto de mascota cargada');
+    } catch (error: any) {
+      console.error('Error uploading pet photo:', error);
+      showError('Error al cargar la foto: ' + error.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   if (tenantLoading) {
@@ -467,7 +529,37 @@ export default function Mascotas() {
           <Loader className="w-8 h-8 text-primary-600 animate-spin" />
         </div>
       ) : (
-        <Table columns={columns} data={pets} onRowClick={handleRowClick} actions={tableActions} />
+        <div className="space-y-4">
+          <Table columns={columns} data={pets} onRowClick={handleRowClick} actions={tableActions} />
+          <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-slate-600">
+              Mostrando <span className="font-semibold text-slate-900">{startItem}-{endItem}</span> de <span className="font-semibold text-slate-900">{totalPets}</span> mascotas
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </button>
+              <div className="rounded-2xl bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
+                Página {currentPage} de {totalPages}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Modal
@@ -564,6 +656,56 @@ export default function Mascotas() {
                 onChange={(e) => setFormData({ ...formData, chip_number: e.target.value, has_chip: !!e.target.value })}
               />
             </FormField>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Foto de la mascota</p>
+                <p className="mt-1 text-xs text-slate-500">Súbela para identificarla más rápido en listados y detalle.</p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50">
+                {uploadingPhoto ? (
+                  <Loader className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {uploadingPhoto ? 'Subiendo...' : 'Subir foto'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void handlePhotoUpload(file);
+                    }
+                  }}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+            </div>
+            {formData.photo_url ? (
+              <div className="mt-4 flex items-center gap-4 rounded-2xl border border-white/70 bg-white p-4 shadow-sm">
+                <img src={formData.photo_url} alt="Foto de mascota" className="h-20 w-20 rounded-2xl object-cover" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-900">Foto cargada</p>
+                  <p className="text-xs text-slate-500">Puedes cambiarla cuando quieras.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, photo_url: '' })}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                >
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                <Image className="h-5 w-5 text-slate-400" />
+                <span>Sin foto cargada todavía</span>
+              </div>
+            )}
           </div>
 
           <div className="pt-6 border-t border-gray-200">
@@ -733,6 +875,66 @@ export default function Mascotas() {
                 icon: PawPrint,
                 content: (
                   <div className="space-y-6">
+                    {selectedPetDetailsLoading && (
+                      <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
+                        <Loader className="h-4 w-4 animate-spin text-emerald-600" />
+                        Cargando historial clínico, consultas y servicios...
+                      </div>
+                    )}
+
+                    <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 shadow-sm">
+                      <div className="grid gap-0 lg:grid-cols-[220px,1fr]">
+                        <div className="relative min-h-[220px] bg-slate-900">
+                          {selectedPet.photo_url ? (
+                            <img
+                              src={selectedPet.photo_url}
+                              alt={selectedPet.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full min-h-[220px] items-center justify-center bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-center text-white">
+                              <div>
+                                <PawPrint className="mx-auto h-12 w-12" />
+                                <p className="mt-3 text-base font-semibold">Sin foto</p>
+                                <p className="mt-1 max-w-[180px] text-xs text-white/80">Agrega una foto para identificarla más rápido.</p>
+                              </div>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-950/10 to-transparent" />
+                        </div>
+
+                        <div className="space-y-5 p-5 lg:p-6">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Detalle de mascota</p>
+                              <h3 className="mt-2 text-2xl font-semibold text-slate-900">{selectedPet.name}</h3>
+                              <p className="mt-1 text-sm text-slate-500">{selectedPet.breed || 'Sin raza especificada'} · {selectedPet.gender === 'male' ? 'Macho' : selectedPet.gender === 'female' ? 'Hembra' : selectedPet.gender}</p>
+                            </div>
+                            <Badge variant="success">Activo</Badge>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                              <p className="text-xs uppercase tracking-wide text-slate-400">Especie</p>
+                              <p className="mt-2 text-sm font-semibold text-slate-900">{selectedPet.species === 'dog' ? 'Perro' : selectedPet.species === 'cat' ? 'Gato' : selectedPet.species}</p>
+                            </div>
+                            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                              <p className="text-xs uppercase tracking-wide text-slate-400">Edad</p>
+                              <p className="mt-2 text-sm font-semibold text-slate-900">{getDisplayAge(selectedPet)}</p>
+                            </div>
+                            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                              <p className="text-xs uppercase tracking-wide text-slate-400">Peso</p>
+                              <p className="mt-2 text-sm font-semibold text-slate-900">{selectedPet.weight ? `${selectedPet.weight} kg` : 'No especificado'}</p>
+                            </div>
+                            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                              <p className="text-xs uppercase tracking-wide text-slate-400">Microchip</p>
+                              <p className="mt-2 font-mono text-sm font-semibold text-slate-900">{selectedPet.has_chip && selectedPet.chip_number ? selectedPet.chip_number : 'Sin microchip'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-3 gap-4">
                       <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-4">
                         <div className="flex items-center gap-3">
@@ -747,25 +949,25 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Raza</p>
                         <p className="font-semibold text-gray-900">{selectedPet.breed}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Edad</p>
                         <p className="font-semibold text-gray-900">{getDisplayAge(selectedPet)}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Sexo</p>
                         <p className="font-semibold text-gray-900">
                           {selectedPet.gender === 'male' ? 'Macho' : selectedPet.gender === 'female' ? 'Hembra' : selectedPet.gender}
                         </p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Color</p>
                         <p className="font-semibold text-gray-900">{selectedPet.color || 'No especificado'}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Peso</p>
                         <p className="font-semibold text-gray-900">
                           {selectedPet.weight ? `${selectedPet.weight} kg` : 'No especificado'}
@@ -775,7 +977,7 @@ export default function Mascotas() {
 
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="text-sm font-semibold text-gray-900 mb-4">Información del propietario</h3>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="flex items-center gap-3">
                             <User className="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -849,13 +1051,13 @@ export default function Mascotas() {
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="text-sm font-semibold text-gray-900 mb-4">Microchip y documentos</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-xs text-gray-500 mb-1">Número de microchip</p>
                           <p className="font-mono text-sm font-semibold text-gray-900">
                             {selectedPet.has_chip && selectedPet.chip_number ? selectedPet.chip_number : 'Sin microchip'}
                           </p>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-xs text-gray-500 mb-1">Registrado</p>
                           <p className="text-sm font-semibold text-gray-900">
                             {new Date(selectedPet.created_at).toLocaleDateString('es-ES')}
@@ -874,7 +1076,7 @@ export default function Mascotas() {
                 content: (
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                             <Heart className="w-5 h-5 text-green-600" />
@@ -885,7 +1087,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <Scale className="w-5 h-5 text-gray-400" />
                           <div>
@@ -894,7 +1096,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <Syringe className="w-5 h-5 text-gray-400" />
                           <div>
@@ -971,7 +1173,7 @@ export default function Mascotas() {
 
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial de peso</h3>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-gray-600">Mar 2024</span>
@@ -999,7 +1201,7 @@ export default function Mascotas() {
                 content: (
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
+                      <div className="rounded-3xl border border-teal-200 bg-teal-50 p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
                             <Stethoscope className="w-5 h-5 text-teal-600" />
@@ -1010,7 +1212,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                             <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -1023,7 +1225,7 @@ export default function Mascotas() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p className="text-xs text-gray-500 mb-1">Ultima consulta</p>
                         <p className="font-semibold text-gray-900">
                           {selectedPetConsultations.length > 0
@@ -1040,18 +1242,18 @@ export default function Mascotas() {
                           <button
                             key={consultation.id}
                             onClick={() => handleViewConsultationDetail(consultation.id)}
-                            className={`w-full text-left p-4 border rounded-lg transition-all hover:shadow-md ${
+                            className={`w-full rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${
                               consultation.status === 'completed'
-                                ? 'bg-white border-gray-200 hover:border-teal-300'
-                                : 'bg-amber-50 border-amber-200 hover:border-amber-300'
+                                ? 'border-slate-200 bg-white hover:border-teal-200'
+                                : 'border-amber-200 bg-amber-50 hover:border-amber-300'
                             }`}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex items-start gap-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${
                                   consultation.status === 'completed' ? 'bg-teal-100' : 'bg-amber-100'
                                 }`}>
-                                  <Stethoscope className={`w-5 h-5 ${
+                                  <Stethoscope className={`h-5 w-5 ${
                                     consultation.status === 'completed' ? 'text-teal-600' : 'text-amber-600'
                                   }`} />
                                 </div>
@@ -1096,11 +1298,11 @@ export default function Mascotas() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right flex flex-col items-end gap-2">
-                                <Badge variant={consultation.status === 'completed' ? 'success' : 'warning'}>
+                              <div className="flex flex-col items-end gap-2 text-right">
+                                <Badge variant={consultation.status === 'completed' ? 'success' : 'warning'} size="sm">
                                   {consultation.status === 'completed' ? 'Completada' : 'En progreso'}
                                 </Badge>
-                                <span className="text-xs text-teal-600 font-medium">Ver detalles</span>
+                                <span className="text-xs font-medium text-teal-600">Ver detalles</span>
                               </div>
                             </div>
                           </button>
@@ -1122,7 +1324,7 @@ export default function Mascotas() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div className="grid grid-cols-2 gap-4 flex-1">
-                        <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                        <div className="rounded-3xl border border-pink-200 bg-pink-50 p-4 shadow-sm">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
                               <Scissors className="w-5 h-5 text-pink-600" />
@@ -1133,7 +1335,7 @@ export default function Mascotas() {
                             </div>
                           </div>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-xs text-gray-500 mb-1">Ultimo servicio</p>
                           <p className="font-semibold text-gray-900">
                             {selectedPetServices.length > 0
@@ -1159,16 +1361,16 @@ export default function Mascotas() {
                           return (
                             <div
                               key={service.id}
-                              className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:border-pink-200 transition-colors"
+                              className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                             >
-                              <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-pink-100">
                                 <Icon className="w-5 h-5 text-pink-600" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-start justify-between">
                                   <div>
-                                    <p className="text-sm font-medium text-gray-900">{service.service_name}</p>
-                                    <p className="text-xs text-gray-600 mt-1">
+                                    <p className="text-sm font-semibold text-slate-900">{service.service_name}</p>
+                                    <p className="mt-1 text-xs text-slate-600">
                                       {new Date(service.performed_at).toLocaleDateString('es-ES', {
                                         weekday: 'long',
                                         year: 'numeric',
@@ -1177,7 +1379,7 @@ export default function Mascotas() {
                                       })}
                                     </p>
                                     <div className="flex items-center gap-2 mt-2">
-                                      <Badge variant="default">{getServiceTypeLabel(service.service_type)}</Badge>
+                                      <Badge variant="default" size="sm">{getServiceTypeLabel(service.service_type)}</Badge>
                                       {service.duration_minutes && (
                                         <span className="text-xs text-gray-500">{service.duration_minutes} min</span>
                                       )}
@@ -1191,17 +1393,17 @@ export default function Mascotas() {
                                       </div>
                                     )}
                                     {service.notes && (
-                                      <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded">
+                                      <p className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                                         {service.notes}
                                       </p>
                                     )}
                                   </div>
-                                  <div className="text-right">
-                                    <Badge variant={service.status === 'completed' ? 'success' : 'warning'}>
+                                  <div className="flex flex-col items-end text-right">
+                                    <Badge variant={service.status === 'completed' ? 'success' : 'warning'} size="sm">
                                       {service.status === 'completed' ? 'Completado' : service.status}
                                     </Badge>
                                     {service.price > 0 && (
-                                      <p className="text-sm font-semibold text-gray-900 mt-2">
+                                      <p className="mt-2 text-sm font-semibold text-slate-900">
                                         ${service.price.toFixed(2)}
                                       </p>
                                     )}
@@ -1392,7 +1594,7 @@ export default function Mascotas() {
           setShowConsultationDetailModal(false);
           setSelectedConsultationDetail(null);
         }}
-        title="Detalle de Consulta Medica"
+        title="Detalle de consulta médica"
         size="lg"
       >
         {loadingConsultationDetail ? (
@@ -1401,7 +1603,7 @@ export default function Mascotas() {
           </div>
         ) : selectedConsultationDetail?.consultation ? (
           <div className="space-y-6">
-            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-teal-50 via-white to-cyan-50 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
                   <Stethoscope className="w-6 h-6 text-teal-600" />
@@ -1435,21 +1637,21 @@ export default function Mascotas() {
               selectedConsultationDetail.consultation.heart_rate) && (
               <div className="grid grid-cols-3 gap-4">
                 {selectedConsultationDetail.consultation.weight && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm text-center">
                     <Scale className="w-5 h-5 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">Peso</p>
                     <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.weight} kg</p>
                   </div>
                 )}
                 {selectedConsultationDetail.consultation.temperature && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm text-center">
                     <AlertCircle className="w-5 h-5 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">Temperatura</p>
                     <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.temperature}°C</p>
                   </div>
                 )}
                 {selectedConsultationDetail.consultation.heart_rate && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm text-center">
                     <Heart className="w-5 h-5 text-gray-400 mx-auto mb-2" />
                     <p className="text-xs text-gray-500">Frec. Cardiaca</p>
                     <p className="text-lg font-semibold text-gray-900">{selectedConsultationDetail.consultation.heart_rate} BPM</p>
@@ -1459,11 +1661,23 @@ export default function Mascotas() {
             )}
 
             {selectedConsultationDetail.consultation.symptoms && (
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-2">Sintomas observados</h4>
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
-                  {selectedConsultationDetail.consultation.symptoms}
-                </p>
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">Síntomas observados</h4>
+                <p className="text-sm text-slate-700">{selectedConsultationDetail.consultation.symptoms}</p>
+              </div>
+            )}
+
+            {selectedConsultationDetail.consultation.diagnosis && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">Diagnóstico clínico</h4>
+                <p className="text-sm text-slate-700">{selectedConsultationDetail.consultation.diagnosis}</p>
+              </div>
+            )}
+
+            {selectedConsultationDetail.consultation.treatment && (
+              <div className="rounded-3xl border border-slate-200 bg-blue-50 p-5 shadow-sm">
+                <h4 className="text-sm font-semibold text-slate-900 mb-2">Plan terapéutico</h4>
+                <p className="text-sm text-slate-700">{selectedConsultationDetail.consultation.treatment}</p>
               </div>
             )}
 
@@ -1471,11 +1685,11 @@ export default function Mascotas() {
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-teal-600" />
-                  Diagnosticos
+                  Diagnósticos
                 </h4>
                 <div className="space-y-2">
                   {selectedConsultationDetail.diagnoses.map((diag: any, index: number) => (
-                    <div key={diag.id || index} className="flex items-start gap-3 bg-white border border-gray-200 rounded-lg p-3">
+                    <div key={diag.id || index} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           {diag.is_primary && (
@@ -1495,13 +1709,13 @@ export default function Mascotas() {
 
             {selectedConsultationDetail.treatments.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Syringe className="w-4 h-4 text-teal-600" />
-                  Tratamientos
-                </h4>
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <h4 className="text-sm font-semibold text-slate-900">Tratamientos</h4>
+                  <Badge variant="info" size="sm">{selectedConsultationDetail.treatments.length}</Badge>
+                </div>
                 <div className="space-y-2">
                   {selectedConsultationDetail.treatments.map((treatment: any, index: number) => (
-                    <div key={treatment.id || index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div key={treatment.id || index} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
                       <p className="font-medium text-gray-900">{treatment.treatment_name}</p>
                       {treatment.instructions && (
                         <p className="text-sm text-gray-600 mt-1">{treatment.instructions}</p>
@@ -1522,13 +1736,13 @@ export default function Mascotas() {
 
             {selectedConsultationDetail.prescriptions.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Pill className="w-4 h-4 text-teal-600" />
-                  Prescripciones / Recetas
-                </h4>
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <h4 className="text-sm font-semibold text-slate-900">Prescripciones / recetas</h4>
+                  <Badge variant="warning" size="sm">{selectedConsultationDetail.prescriptions.length}</Badge>
+                </div>
                 <div className="space-y-2">
                   {selectedConsultationDetail.prescriptions.map((prescription: any, index: number) => (
-                    <div key={prescription.id || index} className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div key={prescription.id || index} className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
                       <p className="font-medium text-gray-900">{prescription.medication_name}</p>
                       <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-600">
                         {prescription.dosage && (
@@ -1570,7 +1784,7 @@ export default function Mascotas() {
             {selectedConsultationDetail.consultation.notes && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-2">Notas adicionales</h4>
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-700 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                   {selectedConsultationDetail.consultation.notes}
                 </p>
               </div>
@@ -1590,7 +1804,7 @@ export default function Mascotas() {
         ) : (
           <div className="text-center py-8 text-gray-500">
             <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-            <p>No se encontro la informacion de la consulta</p>
+            <p>No se encontró la información de la consulta</p>
           </div>
         )}
       </Modal>
