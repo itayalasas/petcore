@@ -17,6 +17,13 @@ export interface SystemParameter {
   updated_at: string;
 }
 
+export interface SystemParameterOption {
+  value: string;
+  label: string;
+  description: string;
+  parameter: SystemParameter;
+}
+
 export const PARAMETER_TYPES = [
   { code: 'species', name: 'Especies', description: 'Tipos de animales' },
   { code: 'breed', name: 'Razas', description: 'Razas por especie' },
@@ -68,6 +75,21 @@ export async function getParametersByType(tenantId: string, type: string, active
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
+}
+
+export async function getParameterOptionsByType(
+  tenantId: string,
+  type: string,
+  activeOnly = true
+): Promise<SystemParameterOption[]> {
+  const parameters = await getParametersByType(tenantId, type, activeOnly);
+
+  return parameters.map((parameter) => ({
+    value: parameter.code || parameter.name,
+    label: parameter.name,
+    description: parameter.description || '',
+    parameter
+  }));
 }
 
 export async function createSystemParameter(

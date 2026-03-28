@@ -5,13 +5,14 @@ import { useTenant } from '../../contexts/TenantContext';
 import Table from '../ui/Table';
 import Modal from '../ui/Modal';
 import Badge from '../ui/Badge';
-import { FormField, Input, Textarea } from '../ui/FormField';
+import { FormField, Input, Select, Textarea } from '../ui/FormField';
 import { showSuccess, showError } from '../../utils/messages';
 import { getMedications, type Medication } from '../../services/medications';
 import { getDiagnoses, type Diagnosis } from '../../services/diagnoses';
 import { getTreatments, type Treatment } from '../../services/treatments';
 import { createPrescription } from '../../services/prescriptions';
 import { notificationsService } from '../../services/notifications';
+import { getParameterOptionsByType, type SystemParameterOption } from '../../services/systemParameters';
 
 const PENDING_CONSULTATION_APPOINTMENT_KEY = 'pendingConsultationAppointmentId';
 
@@ -146,6 +147,11 @@ const isRelationCacheError = (error: unknown) => {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'PGRST200';
 };
 
+const getParameterLabel = (options: SystemParameterOption[], value: string) => {
+  const match = options.find((option) => option.value === value || option.label === value);
+  return match?.label ?? value;
+};
+
 const panelClassName = 'rounded-2xl border border-slate-200 bg-white/95 shadow-sm shadow-slate-200/60';
 const softSectionClassName = 'rounded-2xl border border-slate-200 bg-slate-50/90 p-4';
 const subtleInputClassName = 'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-700 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100';
@@ -171,6 +177,10 @@ export default function Salud() {
   const [showTreatmentModal, setShowTreatmentModal] = useState(false);
   const [showVaccineModal, setShowVaccineModal] = useState(false);
   const [vaccineCatalog, setVaccineCatalog] = useState<VaccineCatalog[]>([]);
+  const [medicationRoutes, setMedicationRoutes] = useState<SystemParameterOption[]>([]);
+  const [medicationFrequencies, setMedicationFrequencies] = useState<SystemParameterOption[]>([]);
+  const [selectedPrescriptionRoute, setSelectedPrescriptionRoute] = useState('oral');
+  const [selectedPrescriptionFrequency, setSelectedPrescriptionFrequency] = useState('cada_12h');
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [itemType, setItemType] = useState<'product' | 'service'>('product');
   const [catalogsLoaded, setCatalogsLoaded] = useState(false);
@@ -437,6 +447,26 @@ export default function Salud() {
     }
   };
 
+  const loadPrescriptionParameters = async () => {
+    try {
+      const [routes, frequencies] = await Promise.all([
+        getParameterOptionsByType(currentTenant!.id, 'medication_route'),
+        getParameterOptionsByType(currentTenant!.id, 'medication_frequency')
+      ]);
+
+      setMedicationRoutes(routes);
+      setMedicationFrequencies(frequencies);
+      setSelectedPrescriptionRoute((current) => routes.some((option) => option.value === current)
+        ? current
+        : routes[0]?.value || 'oral');
+      setSelectedPrescriptionFrequency((current) => frequencies.some((option) => option.value === current)
+        ? current
+        : frequencies[0]?.value || 'cada_12h');
+    } catch (error) {
+      console.error('Error loading prescription parameters:', error);
+    }
+  };
+
   const ensureBaseCatalogsLoaded = async () => {
     if (!currentTenant || catalogsLoaded || catalogLoading) {
       return;
@@ -458,7 +488,13 @@ export default function Salud() {
 
     try {
       setCatalogLoading(true);
-      await Promise.all([loadMedications(), loadDiagnoses(), loadTreatments(), loadVaccineCatalog()]);
+      await Promise.all([
+        loadMedications(),
+        loadDiagnoses(),
+        loadTreatments(),
+        loadVaccineCatalog(),
+        loadPrescriptionParameters()
+      ]);
       setClinicalCatalogsLoaded(true);
     } finally {
       setCatalogLoading(false);
@@ -506,10 +542,10 @@ export default function Salud() {
       medication_id: medication.id,
       medication_name: medication.name,
       dosage: '',
-      frequency: 'Cada 12 horas',
+      frequency: selectedPrescriptionFrequency,
       duration_days: 7,
       quantity: '1',
-      route: 'oral',
+      route: selectedPrescriptionRoute,
       instructions: ''
     };
 
@@ -525,6 +561,12 @@ export default function Salud() {
       ...formData,
       prescriptions: formData.prescriptions.filter((_, i) => i !== index)
     });
+  };
+
+  const handleOpenPrescriptionModal = async () => {
+    await ensureClinicalCatalogsLoaded();
+    setItemSearchTerm('');
+    setShowPrescriptionModal(true);
   };
 
   const addDiagnosis = (diagnosis: Diagnosis) => {
@@ -1027,6 +1069,15 @@ export default function Salud() {
     return matchesSearch && matchesSpecies;
   });
 
+  const prescriptionRouteOptions = medicationRoutes.length > 0
+    ? medicationRoutes
+    : ([{ value: 'oral', label: 'Oral', description: '', parameter: {} as SystemParameterOption['parameter'] }] as SystemParameterOption[]);
+
+  const prescriptionFrequencyOptions = medicationFrequencies.length > 0
+    ? medicationFrequencies
+    : ([{ value: 'cada_12h', label: 'Cada 12 horas', description: '', parameter: {} as SystemParameterOption['parameter'] }] as SystemParameterOption[]);
+
+
   const columns = [
     { key: 'date', label: 'Fecha', render: (_value: string, row: Consultation) => new Date(row.date).toLocaleDateString('es-ES') },
     { key: 'pet_name', label: 'Mascota' },
@@ -1433,7 +1484,7 @@ export default function Salud() {
                   Prescripciones
                 </h3>
                 <button
-                  onClick={() => setShowPrescriptionModal(true)}
+                  onClick={() => void handleOpenPrescriptionModal()}
                   className={accentButtonClassName}
                 >
                   <Plus className="w-4 h-4" />
@@ -1452,7 +1503,7 @@ export default function Salud() {
                       <div className="flex-1">
                         <span className="text-sm font-medium text-slate-900">{prescription.medication_name}</span>
                         <p className="text-xs text-slate-500">
-                          {prescription.dosage} - {prescription.frequency} - {prescription.duration_days} días
+                          {prescription.dosage} - {getParameterLabel(prescriptionFrequencyOptions, prescription.frequency)} - {getParameterLabel(prescriptionRouteOptions, prescription.route)} - {prescription.duration_days} días
                         </p>
                       </div>
                       <button
@@ -1641,6 +1692,38 @@ export default function Salud() {
           title="Agregar Prescripción"
         >
           <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormField label="Vía de administración">
+                <Select
+                  value={selectedPrescriptionRoute}
+                  onChange={(event) => setSelectedPrescriptionRoute(event.target.value)}
+                >
+                  {prescriptionRouteOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+
+              <FormField label="Frecuencia">
+                <Select
+                  value={selectedPrescriptionFrequency}
+                  onChange={(event) => setSelectedPrescriptionFrequency(event.target.value)}
+                >
+                  {prescriptionFrequencyOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            </div>
+
+            <div className="rounded-xl border border-teal-100 bg-teal-50/60 px-4 py-3 text-xs text-teal-700">
+              Estos valores se cargan desde Parámetros del Sistema para mantener el mismo flujo configurable que usa el catálogo de vacunas.
+            </div>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
