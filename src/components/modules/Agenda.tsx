@@ -177,6 +177,7 @@ export default function Agenda() {
 
   const getWeekDays = () => {
     const start = new Date(selectedDate);
+    start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - start.getDay());
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(start);
@@ -191,7 +192,11 @@ export default function Agenda() {
     if (viewMode === 'day' && !isSameDay(apptDate, selectedDate)) return false;
     if (viewMode === 'week') {
       const weekDays = getWeekDays();
-      if (apptDate < weekDays[0] || apptDate > weekDays[6]) return false;
+      const weekStart = new Date(weekDays[0]);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekDays[6]);
+      weekEnd.setHours(23, 59, 59, 999);
+      if (apptDate < weekStart || apptDate > weekEnd) return false;
     }
 
     if (filterDepartment && appt.service?.service_type !== filterDepartment) return false;
