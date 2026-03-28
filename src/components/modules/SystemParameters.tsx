@@ -220,12 +220,14 @@ export default function SystemParameters() {
     return PARAMETER_TYPES.find(t => t.code === typeCode) || { code: typeCode, name: typeCode, description: '' };
   };
 
-  if (loading) {
-    return <LoadingSpinner message="Cargando parametros..." />;
-  }
+  const showInitialLoading = loading && parameters.length === 0;
 
   return (
     <div className="space-y-6">
+      {showInitialLoading ? (
+        <LoadingSpinner message="Cargando parametros..." />
+      ) : (
+        <>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
@@ -598,6 +600,8 @@ export default function SystemParameters() {
         title="Eliminar Parametro"
         message={`Esta seguro de eliminar "${paramToDelete?.name}"? Esta accion no se puede deshacer.`}
       />
+        </>
+      )}
     </div>
   );
 }
