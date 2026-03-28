@@ -411,12 +411,14 @@ export default function Agenda() {
 
   const renderTimeGrid = (days: Date[]) => {
     const timeSlots = getTimeSlots();
-    const gridColumns = days.length === 1 ? 'grid-cols-[80px_1fr]' : `grid-cols-[80px_repeat(${days.length},minmax(0,1fr))]`;
+    const gridTemplateColumns = days.length === 1
+      ? '80px minmax(0, 1fr)'
+      : `80px repeat(${days.length}, minmax(0, 1fr))`;
     const timelineHeight = timeSlots.length * SLOT_HEIGHT_PX;
 
     return (
       <div className="bg-white rounded-lg border overflow-auto">
-        <div className={`grid ${gridColumns} min-w-[900px]`}>
+        <div className="grid min-w-[900px]" style={{ gridTemplateColumns }}>
           <div className="bg-gray-50 border-b p-2"></div>
           {days.map(day => (
             <div
@@ -469,7 +471,7 @@ export default function Agenda() {
                       key={`slot-${day.toISOString()}-${slot.label}`}
                       type="button"
                       className={`absolute left-0 right-0 border-b border-dashed border-gray-200 transition-colors ${canCreateHere ? 'hover:bg-gray-50/70 cursor-pointer' : 'cursor-not-allowed bg-emerald-50/20'}`}
-                      style={{ top: index * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX }}
+                      style={{ top: index * SLOT_HEIGHT_PX, height: SLOT_HEIGHT_PX, zIndex: 1 }}
                       onClick={() => {
                         if (canCreateHere) {
                           openNewAppointmentModal(day, slot.hour, slot.minute);
@@ -498,7 +500,7 @@ export default function Agenda() {
                 })}
 
                 <div
-                  className="pointer-events-none absolute inset-0"
+                  className="pointer-events-none absolute inset-0 z-10"
                   style={{
                     backgroundImage: `linear-gradient(to bottom, transparent 0, transparent ${SLOT_HEIGHT_PX - 1}px, rgba(226,232,240,0.9) ${SLOT_HEIGHT_PX - 1}px, rgba(226,232,240,0.9) ${SLOT_HEIGHT_PX}px)`,
                     backgroundSize: `100% ${SLOT_HEIGHT_PX}px`,
